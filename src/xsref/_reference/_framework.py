@@ -146,16 +146,6 @@ def process_output(args, output_types):
     return output[0] if len(output) == 1 else output
 
 
-def get_timeout_handler(self, funcname):
-    def timeout_handler(signum, frame):
-        raise TimeoutError(
-            f"Reference implementation {funcname} timed out after"
-            f" {timeout} seconds."
-
-        )
-    return timeout_handler
-
-
 class XSRefFallbackWarning(UserWarning):
     pass
 
