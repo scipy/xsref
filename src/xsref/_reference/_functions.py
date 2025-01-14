@@ -1470,7 +1470,7 @@ def log1pmx(z):
     """
     # set the precision high enough to avoid catastrophic cancellation.
     # Near z = 0 log(1 + z) - z = -z^2/2 + O(z^3)
-    with mp.workprec(get_resolution_precision(log2abs_x=2*mp.log(abs(z/2), b=2))):
+    with mp.workprec(get_resolution_precision(x=z/2):
         result = log1p._mp(z) - z
     return result
 
