@@ -2216,6 +2216,7 @@ def solve_bisect(f, xl, xr, *, maxiter=1000):
 
 
 _exclude = [
+    "get_resolution_precision",
     "is_complex"
     "math",
     "mp",
