@@ -234,6 +234,6 @@ class reference_implementation:
             return result
 
         wrapper.__annotations__ =  typing.get_type_hints(func)
-        setattr(wrapper, "_xsref_scipy_func", self.scipy_func)
+        setattr(wrapper, "_scipy_func", self.scipy_func)
         setattr(wrapper, "_mp", func)
         return wrapper
