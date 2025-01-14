@@ -1470,7 +1470,7 @@ def log1pmx(z):
     """
     # set the precision high enough to avoid catastrophic cancellation.
     # Near z = 0 log(1 + z) - z = -z^2/2 + O(z^3)
-    with mp.workprec(get_resolution_precision(x=z/2):
+    with mp.workprec(get_resolution_precision(x=z/2)):
         result = log1p._mp(z) - z
     return result
 
@@ -2217,7 +2217,7 @@ def solve_bisect(f, xl, xr, *, maxiter=1000):
 
 _exclude = [
     "get_resolution_precision",
-    "is_complex"
+    "is_complex",
     "math",
     "mp",
     "np",
