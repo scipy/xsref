@@ -551,7 +551,7 @@ def cyl_bessel_y(v: Real, z: Real) -> Real: ...
 def cyl_bessel_y(v: Real, z: Complex) -> Complex: ...
 
 
-@reference_implementation(scipy=ufuncs.yv, timeout=10)
+@reference_implementation(scipy=ufuncs.yv, default_timeout=10)
 def cyl_bessel_y(v, z):
     """Bessel function of the second kind.
 
@@ -1520,7 +1520,7 @@ def log_expit(x: Real) -> Real:
     return mp.log(mp.sigmoid(x))
 
 
-@reference_implementation(scipy=ufuncs.log_wright_bessel, timeout=10)
+@reference_implementation(scipy=ufuncs.log_wright_bessel, default_timeout=10)
 def log_wright_bessel(a: Real, b: Real, x: Real) -> Real:
     """Natural logarithm of Wright's generalized Bessel function."""
     return mp.log(wright_bessel._mp(a, b, x))
@@ -2104,7 +2104,7 @@ def wofz(x):
     return mp.exp(-x**2) * mp.erfc(-mp.j * x)
 
 
-@reference_implementation(scipy=ufuncs.wright_bessel, timeout=10)
+@reference_implementation(scipy=ufuncs.wright_bessel, default_timeout=10)
 def wright_bessel(a: Real, b: Real, x: Real) -> Real:
     """Wright's generalized Bessel function."""
     def term(k):

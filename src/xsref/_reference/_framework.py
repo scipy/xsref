@@ -161,17 +161,17 @@ class XSRefFallbackWarning(UserWarning):
 
 
 class reference_implementation:
-    def __init__(self, *, dps=100, scipy=None, timeout=3, nan_invalid=True):
+    def __init__(self, *, dps=100, scipy=None, default_timeout=3, nan_invalid=True):
         self.dps = dps
-        self.timeout = timeout
+        self.default_timeout = default_timeout
         self.nan_invalid = nan_invalid
         self.scipy_func = scipy
 
-    def _get_timeout_handler(self, funcname):
+    def _get_timeout_handler(self, funcname, seconds):
         def timeout_handler(signum, frame):
             raise TimeoutError(
                 f"Reference implementation {funcname} timed out after"
-                f" {self.timeout} seconds."
+                f" {seconds} seconds."
             )
         return timeout_handler
 
@@ -199,12 +199,12 @@ class reference_implementation:
         exec(annotations_code)
 
         @functools.wraps(func)
-        def wrapper(*args):
-            if self.timeout is not None:
+        def wrapper(*args, timeout=self.default_timeout):
+            if timeout is not None:
                 signal.signal(
-                    signal.SIGALRM, self._get_timeout_handler(func.__name__)
+                    signal.SIGALRM, self._get_timeout_handler(func.__name__, timeout)
                 )
-                signal.alarm(self.timeout)
+                signal.alarm(timeout)
             try:
                 with mp.workdps(self.dps):
                     mp_args, output_types = process_args(func, *args)
