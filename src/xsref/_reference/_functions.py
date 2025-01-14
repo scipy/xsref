@@ -46,6 +46,25 @@ def to_mp(x):
     return x
 
 
+def get_resolution_precision(*, x=None, log2abs_x=None):
+    """Identify the level of precision needed to resolve 1 + x.
+
+    This is the precision level needed so that
+    ``float((1 + x) - 1)`` will recover `x` with no loss of precision
+    due to catastrophic cancellation.
+    """
+    if x is not None and log_abs_x is not None:
+        raise ValueError
+    if x is not None:
+        if x == 0 or not mp.isfinite(x):
+            return mp.prec
+        log2abs_x = mp.log(abs(x), b=2)
+    # 1075 is the precision needed to resolve the smallest subnormal.
+    return min(
+        max(int(mp.ceil(-log2abs_x)) + 53, mp.prec), 1075
+    )
+
+
 @overload
 def airy(x: Real) -> Tuple[Real, Real, Real, Real]: ...
 @overload
@@ -109,9 +128,7 @@ def bdtr(k, n, p):
     if k == n:
         return mp.one
     # set the precision high enough that mp.one - p != 1
-    precision = int(mp.ceil(-mp.log(abs(p), b=2))) + 53 if 0 < abs(p) < 1 else 0
-    precision = max(mp.prec, precision)
-    with mp.workprec(precision):
+    with mp.workprec(get_resolution_precision(x=p)):
         result = betainc._mp(n - k, k + 1, 1 - p)
     return result
 
@@ -286,11 +303,7 @@ def cosm1(x: Real) -> Real:
     # cos(x) - 1 = x^2/2 + O(x^4) for x near 0
     if not mp.isfinite(x):
         return mp.nan
-    precision = (
-        min(int(mp.ceil(-2*mp.log(abs(x), b=2))), 1024) + 53 if 0 < abs(x) < 1 else 0
-    )
-    precision = max(mp.prec, precision)
-    with mp.workprec(precision):
+    with mp.workprec(get_resolution_precision(log2abs_x=2*mp.log(abs(x/2), b=2))):
         result =  mp.cos(x) - mp.one
     return result
 
@@ -777,9 +790,7 @@ def ellipkinc(phi: Real, m: Real) -> Real:
 def ellipkm1(p: Real) -> Real:
     """Complete elliptic integral of the first kind around m = 1."""
     # set the precision high enough to resolve 1 - p
-    precision = int(mp.ceil(-mp.log(abs(p), b=2))) + 53 if 0 < abs(p) < 1 else 0
-    precision = max(mp.prec, precision)
-    with mp.workprec(precision):
+    with mp.workprec(get_resolution_precision(x=p)):
         result = ellipk._mp(1 - p)
     return result
 
@@ -855,10 +866,7 @@ def erfcinv(x: Real) -> Real:
         return mp.nan
     if x == 0:
         return mp.inf
-    # set the precision high enough to resolve 1 - x.
-    precision = int(mp.ceil(-mp.log(abs(x), b=2))) + 53 if 0 < abs(x) < 1 else 0
-    precision = max(mp.prec, precision)
-    with mp.workprec(precision):
+    with mp.workprec(get_resolution_precision(x=p)):
         result = mp.erfinv(mp.one - x)
     return result
 
@@ -974,10 +982,8 @@ def exprel(x: Real) -> Real:
     if x == 0:
         return mp.one
     # set the precision high enough to avoid catastrophic cancellation
-    precision = int(mp.ceil(-mp.log(abs(x), b=2))) + 53 if 0 < abs(x) < 1 else 0
-    precision = max(mp.prec, precision)
-    with mp.workprec(precision):
-        # Near 0, mp.exp(x) - 1 = x + O(x^2)
+    # Near 0, mp.exp(x) - 1 = x + O(x^2)
+    with mp.workprec(get_resolution_precision(x=x)):
         result = (mp.exp(x) - 1) / x
     return result
 
@@ -1285,12 +1291,7 @@ def iv_ratio_c(v: Real, x: Real) -> Real:
     denominator = cyl_bessel_i._mp(v - 1, x)
     # Set precision high enough to avoid catastrophic cancellation.
     # For large x, iv_ratio_c(v, x) ~ (v - 0.5) / x
-    if x != 0 and 0 < abs((v - 0.5) / x) < 1:
-        precision = int(mp.ceil(-mp.log(abs((v - 0.5)/x), b=2))) + 53
-        precision = max(mp.prec, precision)
-    else:
-        precision = mp.prec
-    with mp.workprec(precision):
+    with mp.workprec(get_resolution_precision(x=(v - 0.5) / x)):
         result = mp.one - numerator / denominator
     return result
 
@@ -1425,9 +1426,7 @@ def lgam1p(x: Real) -> Real:
     if x == mp.inf:
         return mp.inf
     # set the precision high enough to resolve 1 + x.
-    precision = int(mp.ceil(-mp.log(abs(x), b=2))) + 53 if 0 < abs(x) < 1 else 0
-    precision = max(mp.prec, precision)
-    with mp.workprec(precision):
+    with mp.workprec(get_resolution_precision(x=x)):
         return gammaln._mp(x + 1)
 
 
@@ -1471,13 +1470,7 @@ def log1pmx(z):
     """
     # set the precision high enough to avoid catastrophic cancellation.
     # Near z = 0 log(1 + z) - z = -z^2/2 + O(z^3)
-    if z == 0:
-        return mp.zero
-    precision = (
-        min(int(mp.ceil(-2*mp.log(abs(z), b=2))), 1024) + 53 if 0 < abs(z) < 1 else 0
-    )
-    precision = max(mp.prec, precision)
-    with mp.workprec(precision):
+    with mp.workprec(get_resolution_precision(log2abs_x=2*mp.log(abs(z/2), b=2))):
         result = log1p._mp(z) - z
     return result
 
@@ -1534,8 +1527,7 @@ def logit(p: Real) -> Real:
     if p < 0 or p > 1:
         return mp.nan
     # set the precision high enough to resolve 1 - p.
-    precision = int(mp.ceil(-mp.log(abs(p), b=2))) + 53 if 0 < abs(p) < 1 else 0
-    with mp.workprec(max(mp.prec, precision)):
+    with mp.workprec(get_resolution_precision(x=p)):
         result = mp.log(p/(1-p))
     return result
 
@@ -1634,10 +1626,7 @@ def ndtri(y: Real) -> Real:
     if y == 1:
         return mp.inf
     # set the precision high enough to resolve 2*y - 1
-    precision = int(mp.ceil(-mp.log(abs(2*y), b=2))) + 53 if 0 < abs(2*y) < 1 else 0
-    precision = max(mp.prec, precision)
-    with mp.workprec(precision):
-        # set the precision high enough to resolve 2*y - 1
+    with mp.workprec(get_resolution_precision(x=2*y)):
         result = mp.sqrt(2) * mp.erfinv(2*y - 1)
     return result
 
@@ -1730,9 +1719,7 @@ def pbdv(v: Real, x: Real) -> Tuple[Real, Real]:
 def pbvv(v: Real, x: Real) -> Tuple[Real, Real]:
     """Parabolic cylinder function V."""
     # Set precision to guarantee -v - 0.5 retains precision for very small v.
-    precision = int(mp.ceil(-mp.log(abs(2*v), b=2))) + 53 if 0 < abs(2*v) < 1 else 0
-    precision = max(mp.prec, precision)
-    with mp.workprec(precision):
+    with mp.workprec(get_resolution_precision(x=2*v)):
         d = mp.pcfv(-v - 0.5, x)
     _, dp = ufuncs.pbvv(to_fp(v), to_fp(x))
     message = (
@@ -2056,9 +2043,7 @@ def spence(z: Complex) -> Complex: ...
 def spence(z):
     """Spence's function, also known as the dilogarithm."""
     # set the precision high enough that mp.one - z != 1
-    precision = int(mp.ceil(-mp.log(abs(z), b=2))) + 53 if 0 < abs(z) < 1 else 0
-    precision = max(mp.prec, precision)
-    with mp.workprec(precision):
+    with mp.workprec(get_resolution_precision(x=z)):
         result = mp.polylog(2, mp.one - z)
     return result
 
@@ -2167,9 +2152,7 @@ def zetac(z: Real) -> Real:
     # zeta(z) - 1 = 2^-z + O(3^-z).
     if z == 1:
         return mp.nan
-    precision = int(mp.ceil(z.real)) + 53 if abs(z.real) < 1 else 0
-    precision = max(mp.prec, precision)
-    with mp.workprec(precision):
+    with mp.workprec(get_resolution_precision(log2abs_x=-z.real)):
         result = mp.zeta(z) - mp.one
     return result
 
