@@ -145,6 +145,7 @@ def bdtri(k, n, y):
         return mp.nan
     """Inverse function to `bdtr` with respect to `p`."""
     k, n = mp.floor(k), mp.floor(n)
+
     def f(p):
         return bdtr._mp(k, n, p) - y
 
@@ -500,9 +501,7 @@ def cyl_bessel_k(v, z):
             return mp.nan
         # On branch cut, choose branch based on sign of zero
         z += mp.mpc("0", "1e-1000000000") * math.copysign(mp.one, z.imag)
-
     return mp.besselk(v, z)
-
 
 
 @reference_implementation(scipy=ufuncs.k0)
@@ -632,7 +631,6 @@ def cyl_hankel_1(v, z):
             return mp.nan
         # On branch cut, choose branch based on sign of zero
         z += mp.mpc("0", "1e-1000000000") * math.copysign(mp.one, z.imag)
-
     return mp.hankel1(v, z)
 
 
@@ -674,7 +672,6 @@ def cyl_hankel_2(v, z):
             return mp.nan
         # On branch cut, choose branch based on sign of zero
         z += mp.mpc("0", "1e-1000000000") * math.copysign(mp.one, z.imag)
-
     return mp.hankel2(v, z)
 
 
@@ -1062,7 +1059,6 @@ def gammaincc(a: Real, x: Real) -> Real:
         return mp.nan
     if min(a, x) > 1e6:
         raise NotImplementedError
-
     return mp.gammainc(a, x, mp.inf, regularized=True)
 
 
@@ -1073,7 +1069,6 @@ def gammainc(a: Real, x: Real) -> Real:
         return mp.nan
     if min(a, x) > 1e6:
         raise NotImplementedError
-
     return mp.gammainc(a, 0, x, regularized=True)
 
 
