@@ -1,14 +1,26 @@
 import functools
 import math
 import numpy as np
+import scipy
 import signal
+import threading
 import typing
+import warnings
 
 from mpmath import mp
+from packaging import version
 from typing import get_origin
 from typing import overload
 
-__all__ = ["reference_implementation"]
+
+__all__ = ["reference_implementation", "XSRefFallbackWarning"]
+
+
+if version.parse(scipy.__version__) >= version.parse("1.16"):
+    raise RuntimeError(
+        f"SciPy {scipy.__version__} is not an independent reference. SciPy"
+        " depends on xsf as of version 1.16."
+    )
 
 
 def get_signature_from_type_hints(type_hints):
@@ -144,12 +156,16 @@ def get_timeout_handler(self, funcname):
     return timeout_handler
 
 
+class XSRefFallbackWarning(UserWarning):
+    pass
+
+
 class reference_implementation:
-    def __init__(self, *, dps=100, uses_mp=True, timeout=3, nan_invalid=True):
+    def __init__(self, *, dps=100, scipy=None, timeout=3, nan_invalid=True):
         self.dps = dps
         self.timeout = timeout
-        self.uses_mp = uses_mp
         self.nan_invalid = nan_invalid
+        self.scipy_func = scipy
 
     def _get_timeout_handler(self, funcname):
         def timeout_handler(signum, frame):
@@ -160,10 +176,6 @@ class reference_implementation:
         return timeout_handler
 
     def __call__(self, func):
-        if not self.uses_mp:
-            # The reference implementation does not use arbitrary precision.
-            return func
-
         overloads = typing.get_overloads(func)
         annotations_code = "import numpy\n"
         for overload_def in overloads:
@@ -193,22 +205,35 @@ class reference_implementation:
                     signal.SIGALRM, self._get_timeout_handler(func.__name__)
                 )
                 signal.alarm(self.timeout)
-
             try:
                 with mp.workdps(self.dps):
-                    args, output_types = process_args(func, *args)
-                    if self.nan_invalid and any([mp.isnan(x) for x in args]):
+                    mp_args, output_types = process_args(func, *args)
+                    if self.nan_invalid and any([mp.isnan(x) for x in
+                                                 mp_args]):
                         result = tuple(mp.nan for _ in range(len(output_types)))
                     else:
-                        result = func(*args)
+                        result = func(*mp_args)
                         if not isinstance(result, tuple):
                             result = (result, )
                     result = process_output(result, output_types)
+            except Exception as e:
+                if self.scipy_func is not None:
+                    result = self.scipy_func(*args)
+                    message = (
+                        f"Reference implementation {func.__name__} falling"
+                        f" back to SciPy\nwith args: {args},\ndue to exception: "
+                        f"{type(e).__name__}"
+                    )
+                    message += f", {e}" if str(e) else ""
+                    warnings.warn(message, XSRefFallbackWarning)
+                else:
+                    raise e
             finally:
                 signal.alarm(0)
 
             return result
 
         wrapper.__annotations__ =  typing.get_type_hints(func)
+        setattr(wrapper, "_xsref_scipy_func", self.scipy_func)
         setattr(wrapper, "_mp", func)
         return wrapper

@@ -1,7 +1,6 @@
 import math
 import numpy as np
-import scipy
-import scipy.special as special
+import scipy.special._ufuncs as ufuncs
 import sys
 
 from mpmath import mp  # type: ignore
@@ -9,20 +8,11 @@ from mpmath.calculus.optimization import Bisection, Secant
 from packaging import version
 from typing import overload, Tuple
 
+from numpy import integer as Integer
+from numpy import floating as Real
+from numpy import complexfloating as Complex
+
 from ._framework import reference_implementation
-
-
-if version.parse(scipy.__version__) >= version.parse("1.16"):
-    raise RuntimeError(
-        f"SciPy {scipy.__version__} is not an independent reference. SciPy"
-        " depends on xsf as of version 1.16."
-        )
-
-
-Integer = np.integer
-Real = np.floating
-Complex = np.complexfloating
- 
 
 
 def is_complex(x):
@@ -62,7 +52,7 @@ def airy(x: Real) -> Tuple[Real, Real, Real, Real]: ...
 def airy(x: Complex) -> Tuple[Complex, Complex, Complex, Complex]: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.airy)
 def airy(z):
     """Airy functions and their derivatives.
 
@@ -83,7 +73,7 @@ def airye(x: Real) -> Tuple[Real, Real, Real, Real]: ...
 def airye(x: Complex) -> Tuple[Complex, Complex, Complex, Complex]: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.airye)
 def airye(z):
     """Exponentially scaled Airy functions and their derivatives.
 
@@ -110,7 +100,7 @@ def bdtr(k: Real, n: Integer, p: Real) -> Real: ...
 def bdtr(k: Real, n: Real, p: Real) -> Real: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.bdtr)
 def bdtr(k, n, p):
     """Binomial distribution cumulative distribution function."""
     k, n = mp.floor(k), mp.floor(n)
@@ -132,7 +122,7 @@ def bdtrc(k: Real, n: Integer, p: Real) -> Real: ...
 def bdtrc(k: Real, n: Real, p: Real) -> Real: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.bdtrc)
 def bdtrc(k, n, p):
     """Binomial distribution survival function."""
     if p > 1 or p < 0 or k < 0 or n < 0 or k > n or mp.isinf(n):
@@ -149,7 +139,7 @@ def bdtri(k: Real, n: Integer, y: Real) -> Real: ...
 def bdtri(k: Real, n: Real, y: Real) -> Real: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.bdtri)
 def bdtri(k, n, y):
     if y > 1 or y < 0 or k < 0 or n < 0 or k > n or mp.isinf(n):
         return mp.nan
@@ -161,31 +151,31 @@ def bdtri(k, n, y):
     return solve_bisect(f, 0, 1)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.bei)
 def bei(x: Real) -> Real:
     """Kelvin function bei."""
     return mp.bei(0, x)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.beip)
 def beip(x: Real) -> Real:
     """Derivative of the Kelvin function bei."""
-    return to_mp(special.beip(to_fp(x)))
+    raise NotimplementedError
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.ber)
 def ber(x: Real) -> Real:
     """Kelvin function ber."""
     return mp.ber(0, x)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.berp)
 def berp(x: Real) -> Real:
     """Derivative of the Kelvin function ber."""
-    return to_mp(special.berp(to_fp(x)))
+    raise NotImplementedError
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.besselpoly)
 def besselpoly(a: Real, lmb: Real, nu: Real) -> Real:
     """Weighted integral of the Bessel function of the first kind."""
     def integrand(x):
@@ -194,31 +184,31 @@ def besselpoly(a: Real, lmb: Real, nu: Real) -> Real:
     return mp.quad(integrand, [0, 1])
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.beta)
 def beta(a: Real, b: Real) -> Real:
     """Beta function."""
     return mp.beta(a, b)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.betaln)
 def betaln(a: Real, b: Real) -> Real:
     """Natural logarithm of the absolute value of the Beta function."""
     return mp.log(abs(mp.beta(a, b)))
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.betainc)
 def betainc(a: Real, b: Real, x: Real) -> Real:
     """Regularized incomplete Beta function."""
     return mp.betainc(a, b, 0, x, regularized=True)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.betaincc)
 def betaincc(a: Real, b: Real, x: Real) -> Real:
     """Complement of the regularized incomplete Beta function."""
     return mp.betainc(a, b, x, 1.0, regularized=True)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.betaincinv)
 def betaincinv(a: Real, b: Real, y: Real) -> Real:
     """Inverse of the regularized incomplete beta function."""
     def f(x):
@@ -227,7 +217,7 @@ def betaincinv(a: Real, b: Real, y: Real) -> Real:
     return solve_bisect(f, 0, 1)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.betainccinv)
 def betainccinv(a: Real, b: Real, y: Real) -> Real:
     """Inverse of the complemented regularized incomplete beta function."""
     def f(x):
@@ -236,38 +226,38 @@ def betainccinv(a: Real, b: Real, y: Real) -> Real:
     return solve_bisect(f, 0, 1)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.binom)
 def binom(n: Real, k: Real) -> Real:
     """Binomial coefficient considered as a function of two real variables."""
     return mp.binomial(n, k)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.cbrt)
 def cbrt(x: Real) -> Real:
     """Cube root of x."""
     return mp.cbrt(x)
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.mathieu_cem)
 def cem(m: Real, q: Real, x: Real) -> Tuple[Real, Real]:
     """Even Mathieu function and its derivative."""
-    return special.mathieu_cem(m, q, x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.mathieu_a)
 def cem_cva(m: Real, q: Real) -> Real:
     """Characteristic value of even Mathieu functions."""
-    return special.mathieu_a(m, q)
+    raise NotImplementedError
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.chdtr)
 def chdtr(v: Real, x: Real) -> Real:
     """Chi square cumulative distribution function."""
     if x < 0 or v < 0:
         return mp.nan
     return gammainc._mp(v / 2, x / 2)
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.chdtrc)
 def chdtrc(v: Real, x: Real) -> Real:
     """Chi square survival function."""
     if x < 0 or v < 0:
@@ -275,20 +265,20 @@ def chdtrc(v: Real, x: Real) -> Real:
     return gammaincc._mp(v / 2, x / 2)
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.chdtri)
 def chdtri(v: Real, p: Real) -> Real:
     """Inverse to `chdtrc` with respect to `x`."""
     # TODO. Figure out why chdtri inverts chdtrc and not chdtr
-    return special.chdtri(v, p)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.cosdg)
 def cosdg(x: Real) -> Real:
     """Cosine of the angle x given in degrees."""
-    return special.cosdg(x)
+    raise NotImplementedError
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.cosm1)
 def cosm1(x: Real) -> Real:
     """cos(x) - 1 for use when x is near zero."""
     # set the precision high enough to avoid catastrophic cancellation
@@ -310,7 +300,7 @@ def cospi(x: Real) -> Real: ...
 def cospi(x: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs._cospi)
 def cospi(x):
     """Cosine of pi*x."""
     # This already does the right thing regarding sign of zero for the case
@@ -318,10 +308,10 @@ def cospi(x):
     return mp.cospi(x)
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.cotdg)
 def cotdg(x: Real) -> Real:
     """Cotangent of the angle x given in degrees."""
-    return special.cotdg(x)
+    raise NotImplementedError
 
 
 @overload
@@ -330,7 +320,7 @@ def cyl_bessel_i(v: Real, z: Real) -> Real: ...
 def cyl_bessel_i(v: Real, z: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.iv)
 def cyl_bessel_i(v, z):
     """Modified Bessel function of the first kind.
 
@@ -356,12 +346,9 @@ def cyl_bessel_i(v, z):
 
     if min(abs(v), abs(z)) > 1e3:
         # mpmath can hang indefinitely for some large values of v and z.
-        return to_mp(special.iv(to_fp(v), to_fp(z)))
+        raise NotImplementedError
 
-    try:
-        result = mp.besseli(v, z)
-    except (mp.NoConvergence, ValueError):
-        return to_mp(special.iv(to_fp(v), to_fp(z)))
+    result = mp.besseli(v, z)
 
     if z.imag == 0 and z.real < 0 and v == mp.floor(v):
         # No discontinuity for integer v and should return a real value.
@@ -371,25 +358,25 @@ def cyl_bessel_i(v, z):
     return result
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.i0)
 def cyl_bessel_i0(z: Real) -> Real:
     """Modified Bessel function of order 0."""
     return cyl_bessel_i._mp(0, z)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.i0e)
 def cyl_bessel_i0e(z: Real) -> Real:
     """Exponentially scaled modified Bessel function of order 0."""
     return mp.exp(-abs(z.real)) * cyl_bessel_i0._mp(z)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.i1)
 def cyl_bessel_i1(z: Real)-> Real:
     """Modified Bessel function of order 1."""
     return cyl_bessel_i._mp(1, z)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.i1e)
 def cyl_bessel_i1e(z: Real) -> Real:
     """Exponentially scaled modified Bessel function of order 1."""
     return mp.exp(-abs(z.real)) * cyl_bessel_i1._mp(z)
@@ -401,7 +388,7 @@ def cyl_bessel_ie(v: Real, z: Real) -> Real: ...
 def cyl_bessel_ie(v: Real, z: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.ive)
 def cyl_bessel_ie(v, z):
     """Exponentially scaled modified Bessel function of the first kind.
 
@@ -419,7 +406,7 @@ def cyl_bessel_j(v: Real, z: Real) -> Real: ...
 def cyl_bessel_j(v: Real, z: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.jv)
 def cyl_bessel_j(v, z):
     """Bessel function of the first kind.
 
@@ -445,11 +432,9 @@ def cyl_bessel_j(v, z):
 
     if min(abs(v), abs(z)) > 1e3:
         # mpmath can hang indefinitely for some large values of v and z.
-        return prefactor * to_mp(special.jv(to_fp(v), to_fp(z)))
-    try:
-        result = prefactor * mp.besselj(v, z)
-    except (mp.NoConvergence, ValueError):
-        return prefactor * to_mp(special.jv(to_fp(v), to_fp(z)))
+        raise NotImplementedError
+
+    result = prefactor * mp.besselj(v, z)
 
     if z.imag == 0 and z.real < 0 and v == mp.floor(v):
         # No discontinuity for integer v and should return a real value.
@@ -459,13 +444,13 @@ def cyl_bessel_j(v, z):
     return result
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.j0)
 def cyl_bessel_j0(x: Real) -> Real:
     """Bessel function of the first kind of order 0."""
     return mp.j0(x)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.j1)
 def cyl_bessel_j1(x: Real) -> Real:
     """Bessel function of the first kind of order 1."""
     return mp.j1(x)
@@ -477,7 +462,7 @@ def cyl_bessel_je(v: Real, z: Real) -> Real: ...
 def cyl_bessel_je(v: Real, z: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.jve)
 def cyl_bessel_je(v, z):
     """Exponentially scaled Bessel function of the first kind.
 
@@ -497,7 +482,7 @@ def cyl_bessel_k(v: Real, z: Real) -> Real: ...
 def cyl_bessel_k(v: Real, z: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.kv)
 def cyl_bessel_k(v, z):
     """Modified Bessel function of the second kind.
 
@@ -515,31 +500,30 @@ def cyl_bessel_k(v, z):
             return mp.nan
         # On branch cut, choose branch based on sign of zero
         z += mp.mpc("0", "1e-1000000000") * math.copysign(mp.one, z.imag)
-    try:
-        return mp.besselk(v, z)
-    except (mp.NoConvergence, ValueError):
-        return to_mp(special.kv(to_fp(v), to_fp(z)))
+
+    return mp.besselk(v, z)
 
 
-@reference_implementation()
+
+@reference_implementation(scipy=ufuncs.k0)
 def cyl_bessel_k0(x: Real) -> Real:
     """Modified Bessel function of the second kinf of order 0."""
     return cyl_bessel_k._mp(0, x)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.k0e)
 def cyl_bessel_k0e(x: Real) -> Real:
     """Exponentially scaled modified Bessel function K of order 0."""
     return mp.exp(x) * cyl_bessel_k0._mp(x)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.k1)
 def cyl_bessel_k1(x: Real) -> Real:
     """Modified Bessel function of the second kind of order 0."""
     return cyl_bessel_k._mp(1, x)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.k1e)
 def cyl_bessel_k1e(x: Real) -> Real:
     """Exponentially scaled modified Bessel function K of order 1."""
     return mp.exp(x) * cyl_bessel_k1._mp(x)
@@ -551,7 +535,7 @@ def cyl_bessel_ke(v: Real, z: Real) -> Real: ...
 def cyl_bessel_ke(v: Real, z: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.kve)
 def cyl_bessel_ke(v, z):
     """Exponentially scaled modified Bessel function of the second kind.
 
@@ -568,7 +552,7 @@ def cyl_bessel_y(v: Real, z: Real) -> Real: ...
 def cyl_bessel_y(v: Real, z: Complex) -> Complex: ...
 
 
-@reference_implementation(timeout=10)
+@reference_implementation(scipy=ufuncs.yv, timeout=10)
 def cyl_bessel_y(v, z):
     """Bessel function of the second kind.
 
@@ -593,20 +577,18 @@ def cyl_bessel_y(v, z):
 
     if min(abs(v), abs(z)) > 1e3:
         # mpmath can hang indefinitely for some large values of v and z.
-        return prefactor * to_mp(special.yv(to_fp(v), to_fp(z)))
-    try:
-        return prefactor * mp.bessely(v, z)
-    except (mp.NoConvergence, ValueError, ZeroDivisionError):
-        return prefactor * to_mp(special.yv(to_fp(v), to_fp(z)))
+        raise NotImplementedError
+
+    return prefactor * mp.bessely(v, z)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.y0)
 def cyl_bessel_y0(z: Real) -> Real:
     """Bessel function of the second kind of order 0."""
     return cyl_bessel_y._mp(0, z)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.y1)
 def cyl_bessel_y1(z: Real) -> Real:
     """Bessel function of the second kind of order 1."""
     return cyl_bessel_y._mp(1, z)
@@ -618,7 +600,7 @@ def cyl_bessel_ye(v: Real, z: Real) -> Real: ...
 def cyl_bessel_ye(v: Real, z: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.yve)
 def cyl_bessel_ye(v, z):
     """Exponentially scaled Bessel function of the second kind.
 
@@ -635,7 +617,7 @@ def cyl_hankel_1(v: Real, z: Real) -> Real: ...
 def cyl_hankel_1(v: Real, z: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.hankel1)
 def cyl_hankel_1(v, z):
     """Hankel function of the first kind.
 
@@ -650,10 +632,8 @@ def cyl_hankel_1(v, z):
             return mp.nan
         # On branch cut, choose branch based on sign of zero
         z += mp.mpc("0", "1e-1000000000") * math.copysign(mp.one, z.imag)
-    try:
-        return mp.hankel1(v, z)
-    except (mp.NoConvergence, ValueError):
-        return to_mp(special.hankel1(to_fp(v), to_fp(z)))
+
+    return mp.hankel1(v, z)
 
 
 @overload
@@ -662,7 +642,7 @@ def cyl_hankel_1e(v: Real, z: Real) -> Real: ...
 def cyl_hankel_1e(v: Real, z: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.hankel1e)
 def cyl_hankel_1e(v, z):
     """Exponentially scaled Hankel function of the first kind.
 
@@ -679,7 +659,7 @@ def cyl_hankel_2(v: Real, z: Real) -> Real: ...
 def cyl_hankel_2(v: Real, z: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.hankel2)
 def cyl_hankel_2(v, z):
     """Hankel function of the second kind.
 
@@ -694,10 +674,8 @@ def cyl_hankel_2(v, z):
             return mp.nan
         # On branch cut, choose branch based on sign of zero
         z += mp.mpc("0", "1e-1000000000") * math.copysign(mp.one, z.imag)
-    try:
-        return mp.hankel2(v, z)
-    except (mp.NoConvergence, ValueError):
-        return to_mp(special.hankel2(to_fp(v), to_fp(z)))
+
+    return mp.hankel2(v, z)
 
 
 @overload
@@ -706,7 +684,7 @@ def cyl_hankel_2e(v: Real, z: Real) -> Real: ...
 def cyl_hankel_2e(v: Real, z: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.hankel2e)
 def cyl_hankel_2e(v, z):
     """Exponentially scaled Hankel function of the second kind.
 
@@ -723,7 +701,7 @@ def dawsn(x: Real) -> Real: ...
 def dawsn(x: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.dawsn)
 def dawsn(x):
     """Dawson's integral
 
@@ -741,7 +719,7 @@ def digamma(x: Real) -> Real: ...
 def digamma(x: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.psi)
 def digamma(x):
     """The digamma function.
 
@@ -758,22 +736,22 @@ def digamma(x):
     return mp.digamma(x)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.ellipe)
 def ellipe(m: Real) -> Real:
     """Complete elliptic integral of the second kind."""
     return mp.ellipe(m)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.ellipeinc)
 def ellipeinc(phi: Real, m: Real) -> Real:
     """Incomplete elliptic integral of the second kind."""
     if not mp.isfinite(phi) or mp.isnan(m) or m == mp.inf:
         # mpmath doesn't handle these cases, use self reference for now.
-        return to_mp(special.ellipkinc(to_fp(phi), to_fp(m)))
+        raise NotImplementedError
     return mp.ellipe(phi, m)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.ellipj)
 def ellipj(u: Real, m: Real) -> Tuple[Real, Real, Real, Real]:
     """Jacobian Elliptic functions."""
     sn = mp.ellipfun("sn", u=u, m=m)
@@ -783,22 +761,22 @@ def ellipj(u: Real, m: Real) -> Tuple[Real, Real, Real, Real]:
     return sn, cn, dn, phi
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.ellipk)
 def ellipk(m: Real) -> Real:
     """Complete elliptic integral of the first kind."""
     return mp.ellipk(m)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.ellipkinc)
 def ellipkinc(phi: Real, m: Real) -> Real:
     """Incomplete elliptic integral of the first kind."""
     if not mp.isfinite(phi) or mp.isnan(m) or m == mp.inf:
         # mpmath doesn't handle these cases, use self reference for now.
-        return to_mp(special.ellipkinc(to_fp(phi), to_fp(m)))
+        raise NotImplementedError
     return mp.ellipf(phi, m)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.ellipkm1)
 def ellipkm1(p: Real) -> Real:
     """Complete elliptic integral of the first kind around m = 1."""
     # set the precision high enough to resolve 1 - p
@@ -815,7 +793,7 @@ def erf(x: Real) -> Real: ...
 def erf(x: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.erf)
 def erf(x):
     """Error function.
 
@@ -830,7 +808,7 @@ def erfi(x: Real) -> Real: ...
 def erfi(x: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.erfi)
 def erfi(x):
     """Imaginary error function.
 
@@ -845,7 +823,7 @@ def erfc(x: Real) -> Real: ...
 def erfc(x: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.erfc)
 def erfc(x):
     """Complementary error function 1 - erf(x).
 
@@ -862,7 +840,7 @@ def erfcx(x: Real) -> Real: ...
 def erfcx(x: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.erfcx)
 def erfcx(x):
     """Scaled complementary error function exp(x**2) * erfc(x)
 
@@ -873,7 +851,7 @@ def erfcx(x):
     return mp.exp(x**2) * mp.erfc(x)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.erfcinv)
 def erfcinv(x: Real) -> Real:
     """Inverse of the complementary error function."""
     if not 0 <= x <= 2:
@@ -894,7 +872,7 @@ def exp1(x: Real) -> Real: ...
 def exp1(x: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.exp1)
 def exp1(x):
     """Exponential integral E1.
 
@@ -918,7 +896,7 @@ def exp10(x: Real) -> Real: ...
 def exp10(x: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.exp10)
 def exp10(x):
     """Compute 10**x."""
     return mp.mpf(10) ** x
@@ -930,7 +908,7 @@ def exp2(x: Real) -> Real: ...
 def exp2(x: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.exp2)
 def exp2(x):
     """Compute 2**x."""
     return mp.mpf(2) ** x
@@ -942,7 +920,7 @@ def expi(x: Real) -> Real: ...
 def expi(x: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.expi)
 def expi(x):
     """Exponential integral Ei.
 
@@ -960,7 +938,7 @@ def expi(x):
     return mp.ei(x)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.expit)
 def expit(x: Real) -> Real:
     """Expit (a.k.a logistic sigmoid)."""
     return mp.sigmoid(x)
@@ -972,7 +950,7 @@ def expm1(x: Real) -> Real: ...
 def expm1(x: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.expm1)
 def expm1(x):
     """exp(x) - 1.
 
@@ -987,13 +965,13 @@ def expn(n: Integer, x: Real) -> Real: ...
 @overload
 def expn(n: Real, x: Real) -> Real: ...
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.expn)
 def expn(n, x):
     """Generalized exponential integral En."""
     return mp.expint(n, x)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.exprel)
 def exprel(x: Real) -> Real:
     """Relative error exponential, (exp(x) - 1)/x."""
     if x == 0:
@@ -1007,7 +985,7 @@ def exprel(x: Real) -> Real:
     return result
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.fdtr)
 def fdtr(dfn: Real, dfd: Real, x: Real) -> Real:
     """F cumulative distribution function."""
     if x < 0 or dfn < 0 or dfd < 0:
@@ -1016,7 +994,7 @@ def fdtr(dfn: Real, dfd: Real, x: Real) -> Real:
     return betainc._mp(dfn / 2, dfd / 2, x_dfn / (dfd + x_dfn))
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.fdtrc)
 def fdtrc(dfn: Real, dfd: Real, x: Real) -> Real:
     """F survival function."""
     if x < 0 or dfn < 0 or dfd < 0:
@@ -1025,7 +1003,7 @@ def fdtrc(dfn: Real, dfd: Real, x: Real) -> Real:
     return betaincc._mp(dfn / 2, dfd / 2, x_dfn / (dfd + x_dfn))
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.fdtri)
 def fdtri(dfn: Real, dfd: Real, p: Real) -> Real:
     """F cumulative distribution function."""
     if p < 0 or p > 1 or dfn < 0 or dfd < 0:
@@ -1043,7 +1021,7 @@ def fresnel(x: Real) -> Tuple[Real, Real]: ...
 def fresnel(x: Complex) -> Tuple[Complex, Complex]: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.fresnel)
 def fresnel(x):
     """Fresnel integrals.
 
@@ -1060,7 +1038,7 @@ def gamma(x: Real) -> Real: ...
 def gamma(x: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.gamma)
 def gamma(x):
     """Gamma function.
 
@@ -1077,45 +1055,41 @@ def gamma(x):
     return mp.gamma(x)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.gammaincc)
 def gammaincc(a: Real, x: Real) -> Real:
     """Regularized upper incomplete gamma function."""
     if a < 0 or x < 0:
         return mp.nan
     if min(a, x) > 1e6:
-        return to_mp(special.gammainc(to_fp(a), to_fp(x)))
-    try:
-        return mp.gammainc(a, x, mp.inf, regularized=True)
-    except (mp.NoConvergence, ValueError):
-        return to_mp(special.gammaincc(to_fp(a), to_fp(x)))
+        raise NotImplementedError
+
+    return mp.gammainc(a, x, mp.inf, regularized=True)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.gammainc)
 def gammainc(a: Real, x: Real) -> Real:
     """Regularized lower incomplete gamma function."""
     if a < 0 or x < 0:
         return mp.nan
     if min(a, x) > 1e6:
-        return to_mp(special.gammainc(to_fp(a), to_fp(x)))
-    try:
-        return mp.gammainc(a, 0, x, regularized=True)
-    except (mp.NoConvergence, ValueError):
-        return to_mp(special.gammainc(to_fp(a), to_fp(x)))
+        raise NotImplementedError
+
+    return mp.gammainc(a, 0, x, regularized=True)
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.gammainccinv)
 def gammainccinv(a: Real, y: Real) -> Real:
     """Inverse to the regularized upper incomplete gamma function."""
-    return special.gammainccinv(a, y)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.gammaincinv)
 def gammaincinv(a: Real, y: Real) -> Real:
     """Inverse to the regularized lower incomplete gamma function."""
-    return special.gammaincinv(a, y)
+    raise NotImplementedError
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.gammaln)
 def gammaln(x: Real) -> Real:
     """Logarithm of the absolute value of the gamma function."""
     if x.real <= 0 and x == int(x):
@@ -1123,7 +1097,7 @@ def gammaln(x: Real) -> Real:
     return mp.log(abs(mp.gamma(x)))
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.gammasgn)
 def gammasgn(x: Real) -> Real:
     """Sign of the gamma function."""
     if x == 0.0:
@@ -1133,40 +1107,30 @@ def gammasgn(x: Real) -> Real:
     return mp.sign(mp.gamma(x))
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.gdtr)
 def gdtr(a: Real, b: Real, x: Real) -> Real:
     """Gamma distribution cumulative distribution function."""
     if a < 0 or x < 0:
         return mp.nan
     if min(a*x, b) > 1e6:
-        return to_mp(special.gdtr(to_fp(a),to_fp(b), to_fp(x)))
-    try:
-        # gammainc._mp is not used so that we can fall back to
-        # special.gdtr instead of special.gammainc.
-        return mp.gammainc(b, 0, a * x, regularized=True)
-    except (mp.NoConvergence, ValueError):
-        return to_mp(special.gdtr(to_fp(a), to_fp(b), to_fp(x)))
+        raise NotImplementedError
+    return gammainc._mp(b, a * x)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.gdtrc)
 def gdtrc(a: Real, b: Real, x: Real)-> Real:
     """Gamma distribution survival function."""
     if a < 0 or x < 0:
         return mp.nan
     if min(a*x, b) > 1e6:
-        return to_mp(special.gdtrc(to_fp(a), to_fp(b), to_fp(x)))
-    try:
-        # gammaincc._mp is not used so that we can fall back to
-        # special.gdtrc instead of special.gammaincc.
-        return mp.gammainc(b, a * x, mp.inf, regularized=True)
-    except (mp.NoConvergence, ValueError):
-        return to_mp(special.gdtrc(to_fp(a), to_fp(b), to_fp(x)))
+        raise NotImplementedError
+    return gammaincc._mp(b, a * x)
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.gdtrib)
 def gdtrib(a: Real, p: Real, x: Real) -> Real:
     """Inverse of `gdtr` vs b."""
-    return special.gdtrib(a, p, x)
+    raise NotImplementedError
 
 
 @overload
@@ -1175,7 +1139,7 @@ def hyp1f1(a: Real, b: Real, z: Real) -> Real: ...
 def hyp1f1(a: Real, b: Real, z: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.hyp1f1)
 def hyp1f1(a, b, z):
     """Confluent hypergeometric function 1F1.
 
@@ -1184,12 +1148,7 @@ def hyp1f1(a, b, z):
     Entire in a and z
     Meromorphic in b with poles at nonpositive integers
     """
-    try:
-        return mp.hyp1f1(a, b, z)
-    except ZeroDivisionError:
-        return mp.inf
-    except Exception:
-        return to_mp(special.hyp1f1(to_fp(a), to_fp(b), to_fp(z)))
+    return mp.hyp1f1(a, b, z)
 
 
 @overload
@@ -1198,7 +1157,7 @@ def hyp2f1(a: Real, b: Real, c: Real, z: Real) -> Real: ...
 def hyp2f1(a: Real, b: Real, c: Real, z: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.hyp2f1)
 def hyp2f1(a, b, c, z):
     """Gauss hypergeometric function 2F1(a, b; c; z).
 
@@ -1216,16 +1175,10 @@ def hyp2f1(a, b, c, z):
                 return mp.nan
             # On branch cut, choose branch based on sign of zero
             z += mp.mpc("0", "1e-1000000000") * math.copysign(mp.one, z.imag)
-    try:
-        return mp.hyp2f1(a, b, c, z)
-    except ZeroDivisionError:
-        return mp.inf
-    except Exception:
-        # mpmath can't do it it, so fall back to SciPy 1.15.
-        return to_mp(special.hyp2f1(to_fp(a), to_fp(b), to_fp(c), to_fp(z)))
+    return mp.hyp2f1(a, b, c, z)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.hyperu)
 def hyperu(a: Real, b: Real, z: Real) -> Real:
     """Confluent hypergeometric function U.
 
@@ -1243,7 +1196,7 @@ def hyperu(a: Real, b: Real, z: Real) -> Real:
     return mp.hyperu(a, b, z)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.iti0k0)
 def it1i0k0(x: Real) -> Tuple[Real, Real]:
     """Integrals of modified Bessel functions of order 0."""
     result1 = mp.quad(cyl_bessel_i0._mp, [0, x])
@@ -1251,7 +1204,7 @@ def it1i0k0(x: Real) -> Tuple[Real, Real]:
     return result1, result2
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.itj0y0)
 def it1j0y0(x: Real) -> Tuple[Real, Real]:
     """Integrals of Bessel functions of the first kind of order 0."""
     result1 = mp.quad(cyl_bessel_j0._mp, [0, x])
@@ -1259,13 +1212,13 @@ def it1j0y0(x: Real) -> Tuple[Real, Real]:
     return result1, result2
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.it2i0k0)
 def it2i0k0(x: Real) -> Tuple[Real, Real]:
     """Integrals related to modified Bessel functions of order 0."""
-    return special.it2i0k0(x)
+    raise NotImplementedError
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.it2j0y0)
 def it2j0y0(x: Real) -> Tuple[Real, Real]:
     """Integrals related to Bessel functions of the first kind of order 0."""
 
@@ -1280,7 +1233,7 @@ def it2j0y0(x: Real) -> Tuple[Real, Real]:
     return result1, result2
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.it2struve0)
 def it2struve0(x: Real) -> Real:
     """Integral related to the Struve function of order 0."""
     def f(t):
@@ -1289,7 +1242,7 @@ def it2struve0(x: Real) -> Real:
     return mp.quad(f, [0, x])
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.itairy)
 def itairy(x: Real) -> Tuple[Real, Real, Real, Real]:
     """Integrals of Airy functions."""
     def ai(t):
@@ -1305,7 +1258,7 @@ def itairy(x: Real) -> Tuple[Real, Real, Real, Real]:
     return result1, result2, result3, result4
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.itmodstruve0)
 def itmodstruve0(x: Real) -> Real:
     """Integral of the modified Struve function of order 0."""
     def f(t):
@@ -1314,7 +1267,7 @@ def itmodstruve0(x: Real) -> Real:
     return mp.quad(f, [0, x])
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.itstruve0)
 def itstruve0(x: Real) -> Real:
     """Integral of the modified Struve function of order 0."""
     def f(t):
@@ -1323,14 +1276,14 @@ def itstruve0(x: Real) -> Real:
     return mp.quad(f, [0, x])
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs._iv_ratio)
 def iv_ratio(v: Real, x: Real) -> Real:
     """Returns the ratio ``iv(v, x) / iv(v - 1, x)``"""
     numerator = cyl_bessel_i._mp(v, x)
     return numerator / cyl_bessel_i._mp(v - 1, x)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs._iv_ratio_c)
 def iv_ratio_c(v: Real, x: Real) -> Real:
     """Returns ``1 - iv_ratio(v, x)``."""
     numerator = cyl_bessel_i._mp(v, x)
@@ -1347,7 +1300,7 @@ def iv_ratio_c(v: Real, x: Real) -> Real:
     return result
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.kei)
 def kei(x: Real) -> Real:
     """Kelvin function kei."""
     if x < 0:
@@ -1362,13 +1315,13 @@ def kei(x: Real) -> Real:
     return mp.kei(0, x)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.keip)
 def keip(x: Real) -> Real:
     """Derivative of the Kelvin function kei."""
-    return to_mp(special.keip(to_fp(x)))
+    raise NotImplementedError
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.kelvin)
 def kelvin(x: Real) -> Tuple[Complex, Complex, Complex, Complex]:
     """Kelvin functions as complex numbers."""
     be = mp.mpc(ber._mp(x), bei._mp(x))
@@ -1378,7 +1331,7 @@ def kelvin(x: Real) -> Tuple[Complex, Complex, Complex, Complex]:
     return be, ke, bep, kep
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.ker)
 def ker(x: Real) -> Real:
     """Kelvin function ker."""
     if x < 0:
@@ -1391,13 +1344,13 @@ def ker(x: Real) -> Real:
     return mp.ker(0, x)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.kerp)
 def kerp(x: Real) -> Real:
     """Derivative of the Kelvin function kerp."""
-    return to_mp(special.kerp(to_fp(x)))
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs._kolmogc)
 def kolmogc(x: Real) -> Real:
     """CDF of Kolmogorov distribution.
 
@@ -1406,37 +1359,37 @@ def kolmogc(x: Real) -> Real:
     TODO: Look into writing arbitrary precision reference implementations
     for kolmogc, kolmogci, kolmogi, and kolmogorov.
     """
-    return special._ufuncs._kolmogc(x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs._kolmogci)
 def kolmogci(x: Real) -> Real:
     """Inverse CDF of Kolmogorov distribution."""
-    return special._ufuncs._kolmogci(x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.kolmogi)
 def kolmogi(x: Real) -> Real:
     """Inverse Survival Function of Kolmogorov distribution."""
-    return special.kolmogi(x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.kolmogorov)
 def kolmogorov(x: Real) -> Real:
     """Survival Function of Kolmogorov distribution."""
-    return special.kolmogorov(x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs._kolmogp)
 def kolmogp(x: Real) -> Real:
     """Negative of PDF of Kolmogorov distribution.
 
     TODO: Why is this the negative pdf?
     """
-    return special._ufuncs._kolmogp(x)
+    raise NotImplementedError
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs._lambertw)
 def lambertw(z: Complex, k: Integer, eps: Real) -> Complex:
     """Lambert W function.
 
@@ -1460,14 +1413,14 @@ def lambertw(z: Complex, k: Integer, eps: Real) -> Complex:
     return mp.lambertw(z, k=k)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs._lanczos_sum_expg_scaled)
 def lanczos_sum_expg_scaled(z: Real) -> Real:
     """Exponentially scaled Lanczos approximation to the Gamma function."""
     g = mp.mpf("6.024680040776729583740234375")
     return (mp.e / (z + g - 0.5)) ** (z - 0.5) * mp.gamma(z)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs._lgam1p)
 def lgam1p(x: Real) -> Real:
     """Logarithm of abs(gamma(x + 1))."""
     if mp.isnan(x) or x == -mp.inf:
@@ -1489,7 +1442,7 @@ def log1p(z: Real) -> Real: ...
 def log1p(z: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.log1p)
 def log1p(z):
     """Logarithm of z + 1.
 
@@ -1513,7 +1466,7 @@ def log1pmx(z: Real) -> Real: ...
 def log1pmx(z: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs._log1pmx)
 def log1pmx(z):
     """log(z + 1) - z.
 
@@ -1540,7 +1493,7 @@ def loggamma(z: Real) -> Real: ...
 def loggamma(z: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.loggamma)
 def loggamma(z):
     """Principal branch of the logarithm of the gamma function.
 
@@ -1566,19 +1519,19 @@ def loggamma(z):
     return mp.loggamma(z)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.log_expit)
 def log_expit(x: Real) -> Real:
     """Log of `expit`."""
     return mp.log(mp.sigmoid(x))
 
 
-@reference_implementation(timeout=10)
+@reference_implementation(scipy=ufuncs.log_wright_bessel, timeout=10)
 def log_wright_bessel(a: Real, b: Real, x: Real) -> Real:
     """Natural logarithm of Wright's generalized Bessel function."""
     return mp.log(wright_bessel._mp(a, b, x))
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.logit)
 def logit(p: Real) -> Real:
     """Logit function ``logit(p) = log(p/(1 - p))``"""
     if p == 1:
@@ -1592,40 +1545,40 @@ def logit(p: Real) -> Real:
     return result
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.mathieu_modcem1)
 def mcm1(m: Real, q: Real, x: Real) -> Tuple[Real, Real]:
     """Even modified Mathieu function of the first kind and its derivative."""
-    return special.mathieu_modcem1(m, q, x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.mathieu_modcem2)
 def mcm2(m: Real, q: Real, x: Real) -> Tuple[Real, Real]:
     """Even modified Mathieu function of the second kind and its derivative."""
-    return special.mathieu_modcem2(m, q, x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.modfresnelm)
 def modified_fresnel_minus(x: Real) -> Tuple[Complex, Complex]:
     """Modified Fresnel negative integrals."""
-    return special.modfresnelm(x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.modfresnelp)
 def modified_fresnel_plus(x: Real) -> Tuple[Complex, Complex]:
     """Modified Fresnel negative integrals."""
-    return special.modfresnelp(x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.mathieu_modsem1)
 def msm1(m: Real, q: Real, x: Real) -> Tuple[Real, Real]:
     """Odd modified Mathieu function of the first kind and its derivative."""
-    return special.mathieu_modsem1(m, q, x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.mathieu_modsem2)
 def msm2(m: Real, q: Real, x: Real) -> Tuple[Real, Real]:
     """Odd modified Mathieu function of the second kind and its derivative."""
-    return special.mathieu_modsem2(m, q, x)
+    raise NotImplementedError
 
 
 @overload
@@ -1634,7 +1587,7 @@ def nbdtr(k: Integer, n: Integer, p: Real) -> Real: ...
 def nbdtr(k: Real, n: Real, p: Real) -> Real: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.nbdtr)
 def nbdtr(k, n, p):
     """Negative binomial cumulative distribution function."""
     if (
@@ -1651,7 +1604,7 @@ def nbdtrc(k: Integer, n: Integer, p: Real) -> Real: ...
 def nbdtrc(k: Real, n: Real, p: Real) -> Real: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.nbdtrc)
 def nbdtrc(k, n, p):
     """Negative binomial survival function."""
     if (
@@ -1668,7 +1621,7 @@ def ndtr(x: Real) -> Real: ...
 def ndtr(x: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.ndtr)
 def ndtr(x):
     """Cumulative distribution of the standard normal distribution."""
     if x.imag == 0:
@@ -1676,7 +1629,7 @@ def ndtr(x):
     return (1 + erf._mp(x/mp.sqrt(2)))/2
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.ndtri)
 def ndtri(y: Real) -> Real:
     """Inverse of `ndtr` vs x."""
     if not 0 <= y <= 1:
@@ -1694,7 +1647,7 @@ def ndtri(y: Real) -> Real:
     return result
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.obl_ang1_cv)
 def oblate_aswfa(
     m: Real, n: Real, c: Real, cv: Real, x: Real
 ) -> Tuple[Real, Real]:
@@ -1702,18 +1655,18 @@ def oblate_aswfa(
 
     cv: Characteristic Value
     """
-    return special.obl_ang1_cv(m, n, c, cv, x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.obl_ang1)
 def oblate_aswfa_nocv(
     m: Real, n: Real, c: Real, x: Real
 ) -> Tuple[Real, Real]:
     """Oblate spheroidal angular function of the first kind and its derivative."""
-    return special.obl_ang1(m, n, c, x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.obl_rad1_cv)
 def oblate_radial1(
     m: Real, n: Real, c: Real, cv: Real, x: Real
 ) -> Tuple[Real, Real]:
@@ -1721,18 +1674,18 @@ def oblate_radial1(
 
     cv: Characteristic Value
     """
-    return special.obl_rad1_cv(m, n, c, cv, x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.obl_rad1)
 def oblate_radial1_nocv(
     m: Real, n: Real, c: Real, x: Real
 ) -> Tuple[Real, Real]:
     """Oblate spheroidal radial function of the first kind and its derivative."""
-    return special.obl_rad1(m, n, c, x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.obl_rad2_cv)
 def oblate_radial2(
     m: Real, n: Real, c: Real, cv: Real, x: Real
 ) -> Tuple[Real, Real]:
@@ -1740,24 +1693,24 @@ def oblate_radial2(
 
     cv: Characteristic Value
     """
-    return special.obl_rad2_cv(m, n, c, cv, x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.obl_rad2)
 def oblate_radial2_nocv(
     m: Real, n: Real, c: Real, x: Real
 ) -> Tuple[Real, Real]:
     """Oblate spheroidal radial function of the second kind and its derivative."""
-    return special.obl_rad2(m, n, c, x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.obl_cv)
 def oblate_segv(m: Real, n: Real, c: Real) -> Real:
     """Characteristic value of oblate spheroidal function."""
-    return special.obl_cv(m, n, c)
+    raise NotImplementedError
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.owens_t)
 def owens_t(h: Real, a: Real) -> Real:
     """Owen's T Function."""
     def integrand(x):
@@ -1766,15 +1719,19 @@ def owens_t(h: Real, a: Real) -> Real:
     return mp.quad(integrand, [0, a]) / (2 * mp.pi)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.pbdv)
 def pbdv(v: Real, x: Real) -> Tuple[Real, Real]:
     """Parabolic cylinder function D."""
     d = mp.pcfd(v, x)
-    _, dp = special.pbdv(to_fp(v), to_fp(x))
+    _, dp = ufuncs.pbdv(to_fp(v), to_fp(x))
+    message = (
+        "Reference implementation pbdv falls back to SciPy for derivative."
+    )
+    warnings.warn(message, XSRefFallbackWarning)
     return d, to_mp(dp)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.pbvv)
 def pbvv(v: Real, x: Real) -> Tuple[Real, Real]:
     """Parabolic cylinder function V."""
     # Set precision to guarantee -v - 0.5 retains precision for very small v.
@@ -1782,19 +1739,27 @@ def pbvv(v: Real, x: Real) -> Tuple[Real, Real]:
     precision = max(mp.prec, precision)
     with mp.workprec(precision):
         d = mp.pcfv(-v - 0.5, x)
-    _, dp = special.pbvv(to_fp(v), to_fp(x))
+    _, dp = ufuncs.pbvv(to_fp(v), to_fp(x))
+    message = (
+        "Reference implementation pbvv falls back to SciPy for derivative."
+    )
+    warnings.warn(message, XSRefFallbackWarning)
     return d, to_mp(dp)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.pbwa)
 def pbwa(v: Real, x: Real) -> Tuple[Real, Real]:
     """Parabolic cylinder function W."""
     d = mp.pcfw(v, x)
-    _, dp = special.pbwa(to_fp(v), to_fp(x))
+    _, dp = ufuncs.pbwa(to_fp(v), to_fp(x))
+    message = (
+        "Reference implementation pbwa falls back to SciPy for derivative."
+    )
+    warnings.warn(message, XSRefFallbackWarning)
     return d, to_mp(dp)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.pdtr)
 def pdtr(k: Real, m: Real) -> Real:
     """Poisson cumulative distribution function."""
     if k < 0 or m < 0:
@@ -1803,7 +1768,7 @@ def pdtr(k: Real, m: Real) -> Real:
     return gammaincc._mp(k + 1, m)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.pdtrc)
 def pdtrc(k: Real, m: Real) -> Real:
     """Poisson survival function."""
     if k < 0 or m < 0:
@@ -1818,25 +1783,25 @@ def pdtri(k: Integer, y: Real) -> Real: ...
 def pdtri(k: Real, y: Real) -> Real: ...
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.pdtri)
 def pdtri(k, y):
     """Inverse of `pdtr` vs m."""
-    return special.pdtri(k, y)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.lpmv)
 def pmv(m: Integer, v: Real, x: Real) -> Real:
     """Associated Legendre function of integer order and real degree."""
-    return special.lpmv(m, v, x)
+    raise NotImplementedError
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.poch)
 def poch(z: Real, m: Real) -> Real:
     """Pochhammer symbol."""
     return mp.rf(z, m)
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.pro_ang1_cv)
 def prolate_aswfa(
     m: Real, n: Real, c: Real, cv: Real, x: Real
 ) -> Tuple[Real, Real]:
@@ -1844,18 +1809,18 @@ def prolate_aswfa(
 
     cv: Characteristic Value
     """
-    return special.pro_ang1_cv(m, n, c, cv, x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.pro_ang1)
 def prolate_aswfa_nocv(
     m: Real, n: Real, c: Real, x: Real
 ) -> Tuple[Real, Real]:
     """Prolate spheroidal angular function of the first kind and its derivative."""
-    return special.pro_ang1(m, n, c, x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.pro_rad1_cv)
 def prolate_radial1(
     m: Real, n: Real, c: Real, cv: Real, x: Real
 ) -> Tuple[Real, Real]:
@@ -1863,18 +1828,18 @@ def prolate_radial1(
 
     cv: Characteristic Value
     """
-    return special.pro_rad1_cv(m, n, c, cv, x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.pro_rad1)
 def prolate_radial1_nocv(
     m: Real, n: Real, c: Real, x: Real
 ) -> Tuple[Real, Real]:
     """Prolate spheroidal radial function of the first kind and its derivative."""
-    return special.pro_rad1(m, n, c, x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.pro_rad2_cv)
 def prolate_radial2(
     m: Real, n: Real, c: Real, cv: Real, x: Real
 ) -> Tuple[Real, Real]:
@@ -1882,24 +1847,24 @@ def prolate_radial2(
 
     cv: Characteristic Value
     """
-    return special.pro_rad2_cv(m, n, c, cv, x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.pro_rad2)
 def prolate_radial2_nocv(
     m: Real, n: Real, c: Real, x: Real
 ) -> Tuple[Real, Real]:
     """Prolate spheroidal radial function of the second kind and its derivative."""
-    return special.pro_rad2(m, n, c, x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.pro_cv)
 def prolate_segv(m: Real, n: Real, c: Real) -> Real:
     """Characteristic value of prolate spheroidal function."""
-    return special.pro_cv(m, n, c)
+    raise NotImplementedError
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.radian)
 def radian(d: Real, m: Real, s: Real) -> Real:
     """Convert from degrees to radians."""
     return mp.radians(d + m / 60 + s / 3600)
@@ -1911,7 +1876,7 @@ def rgamma(z: Real) -> Real: ...
 def rgamma(z: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.rgamma)
 def rgamma(z):
     """Reciprocal of the gamma function."""
     if z == 0.0:
@@ -1927,7 +1892,7 @@ def riemann_zeta(z: Real) -> Real: ...
 def riemann_zeta(z: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs._riemann_zeta)
 def riemann_zeta(z):
     """Riemann zeta function.
 
@@ -1940,28 +1905,28 @@ def riemann_zeta(z):
     return mp.zeta(z)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.round)
 def round(x: Real) -> Real:
     """Round to the nearest integer."""
     return mp.nint(x)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs._scaled_exp1)
 def scaled_exp1(x: Real) -> Real:
     """Exponentially scaled exponential integral E1."""
     return mp.exp(x) * x * mp.e1(x)
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.mathieu_sem)
 def sem(m: Real, q: Real, x: Real) -> Tuple[Real, Real]:
     """Odd Mathieu function and its derivative."""
-    return special.mathieu_sem(m, q, x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.mathieu_b)
 def sem_cva(m: Real, q: Real) -> Real:
     """Characteristic value of odd Mathieu functions."""
-    return special.mathieu_b(m, q)
+    raise NotImplementedError
 
 
 @overload
@@ -1970,7 +1935,7 @@ def shichi(x: Real) -> Tuple[Real, Real]: ...
 def shichi(x: Complex) -> Tuple[Complex, Complex]: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.shichi)
 def shichi(x):
     """Hyperbolic sine and cosine integrals.
 
@@ -1988,7 +1953,7 @@ def sici(x: Real) -> Tuple[Real, Real]: ...
 def sici(x: Complex) -> Tuple[Complex, Complex]: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.sici)
 def sici(x):
     """Sine and cosine integrals.
 
@@ -1999,10 +1964,10 @@ def sici(x):
     return mp.si(x), mp.ci(x)
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.sindg)
 def sindg(x):
     """Sine of the angle `x` given in degrees."""
-    return special.sindg(x)
+    raise NotImplementedError
 
 
 @overload
@@ -2011,7 +1976,7 @@ def sinpi(x: Real) -> Real: ...
 def sinpi(x: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs._sinpi)
 def sinpi(x):
     """Sine of pi*x.
 
@@ -2032,10 +1997,10 @@ def smirnov(n: Integer, p: Real) -> Real: ...
 def smirnov(n: Real, p: Real) -> Real: ...
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.smirnov)
 def smirnov(n, d):
     """Kolmogorov-Smirnov complementary cumulative distribution function."""
-    return special.smirnov(n, d)
+    raise NotImplementedError
 
 
 @overload
@@ -2044,10 +2009,10 @@ def smirnovc(n: Integer, p: Real) -> Real: ...
 def smirnovc(n: Real, p: Real) -> Real: ...
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs._smirnovc)
 def smirnovc(n, d):
     """Kolmogorov-Smirnov cumulative distribution function."""
-    return special._ufuncs._smirnovc(n, d)
+    raise NotImplementedError
 
 
 @overload
@@ -2056,10 +2021,10 @@ def smirnovci(n: Integer, p: Real) -> Real: ...
 def smirnovci(n: Real, p: Real) -> Real: ...
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs._smirnovci)
 def smirnovci(n, p):
     """Inverse to `smirnovc`."""
-    return special._ufuncs._smirnovci(n, p)
+    raise NotImplementedError
 
 
 @overload
@@ -2068,10 +2033,10 @@ def smirnovi(n: Integer, p: Real) -> Real: ...
 def smirnovi(n: Real, p: Real) -> Real: ...
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.smirnovi)
 def smirnovi(n, p):
     """Inverse to `smirnov`."""
-    return special.smirnovi(n, p)
+    raise NotImplementedError
 
 
 @overload
@@ -2080,10 +2045,10 @@ def smirnovp(n: Integer, d: Real) -> Real: ...
 def smirnovp(n: Real, d: Real) -> Real: ...
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs._smirnovp)
 def smirnovp(n, d):
     """Negative of Kolmogorov-Smirnov pdf."""
-    return special._ufuncs._smirnovp(n, d)
+    raise NotImplementedError
 
 
 @overload
@@ -2092,7 +2057,7 @@ def spence(z: Real) -> Real: ...
 def spence(z: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.spence)
 def spence(z):
     """Spence's function, also known as the dilogarithm."""
     # set the precision high enough that mp.one - z != 1
@@ -2103,28 +2068,28 @@ def spence(z):
     return result
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.struve)
 def struve_h(v: Real, x: Real) -> Real:
     """Struve function."""
     return mp.struveh(v, x)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.modstruve)
 def struve_l(v: Real, x: Real) -> Real:
     """Modified Struve function."""
     return  mp.struvel(v, x)
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.tandg)
 def tandg(x: Real) -> Real:
     """Tangent of angle x given in degrees."""
-    return special.tandg(x)
+    raise NotImplementedError
 
 
-@reference_implementation(uses_mp=False)
+@reference_implementation(scipy=ufuncs.voigt_profile)
 def voigt_profile(x: Real, sigma: Real, gamma: Real) -> Real:
     """Voigt profile"""
-    return special.voigt_profile(x, sigma, gamma)
+    raise NotImplementedError
 
 
 @overload
@@ -2133,7 +2098,7 @@ def wofz(x: Real) -> Real: ...
 def wofz(x: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.wofz)
 def wofz(x):
     """Faddeeva function
 
@@ -2144,7 +2109,7 @@ def wofz(x):
     return mp.exp(-x**2) * mp.erfc(-mp.j * x)
 
 
-@reference_implementation(timeout=10)
+@reference_implementation(scipy=ufuncs.wright_bessel, timeout=10)
 def wright_bessel(a: Real, b: Real, x: Real) -> Real:
     """Wright's generalized Bessel function."""
     def term(k):
@@ -2162,7 +2127,7 @@ def xlogy(x: Real, y: Real) -> Real: ...
 def xlogy(x: Complex, y: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.xlogy)
 def xlogy(x, y):
     """Compute ``x*log(y)`` so that the result is 0 if ``x = 0``."""
     if x == 0 and not (mp.isnan(x.real) or mp.isnan(x.imag)):
@@ -2183,7 +2148,7 @@ def xlog1py(x: Real, y: Real) -> Real: ...
 def xlog1py(x: Complex, y: Complex) -> Complex: ...
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.xlog1py)
 def xlog1py(x, y):
     """Compute ``x*log(y)`` so that the result is 0 if ``x = 0``."""
     if x == 0 and not (mp.isnan(x.real) or mp.isnan(x.imag)):
@@ -2191,7 +2156,7 @@ def xlog1py(x, y):
     return x * log1p._mp(y)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs._zeta)
 def zeta(z: Real, q: Real) -> Real:
     """Hurwitz zeta function."""
     if z == 1.0:
@@ -2199,7 +2164,7 @@ def zeta(z: Real, q: Real) -> Real:
     return mp.zeta(z, a=q)
 
 
-@reference_implementation()
+@reference_implementation(scipy=ufuncs.zetac)
 def zetac(z: Real) -> Real:
     """Riemann zeta function minus 1."""
     # set the precision high enough to avoid catastrophic cancellation.
