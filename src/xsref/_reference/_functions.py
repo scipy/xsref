@@ -178,7 +178,7 @@ def bei(x: Real) -> Real:
 @reference_implementation(scipy=ufuncs.beip)
 def beip(x: Real) -> Real:
     """Derivative of the Kelvin function bei."""
-    raise NotimplementedError
+    raise NotImplementedError
 
 
 @reference_implementation(scipy=ufuncs.ber)
@@ -1322,8 +1322,8 @@ def kelvin(x: Real) -> Tuple[Complex, Complex, Complex, Complex]:
     """Kelvin functions as complex numbers."""
     be = mp.mpc(ber._mp(x), bei._mp(x))
     ke = mp.mpc(ker._mp(x), kei._mp(x))
-    bep = mp.mpc(berp._mp(x), beip._mp(x))
-    kep = mp.mpc(kerp._mp(x), keip._mp(x))
+    bep = mp.mpc(berp(to_fp(x)), beip(to_fp(x)))
+    kep = mp.mpc(kerp(to_fp(x)), keip(to_fp(x)))
     return be, ke, bep, kep
 
 
