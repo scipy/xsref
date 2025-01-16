@@ -2215,27 +2215,9 @@ def solve_bisect(f, xl, xr, *, maxiter=1000):
     return x
 
 
-_exclude = [
-    "get_resolution_precision",
-    "is_complex",
-    "math",
-    "mp",
-    "np",
-    "overload",
-    "reference_implementation",
-    "scipy",
-    "solve_bisect",
-    "special",
-    "sys",
-    "to_fp",
-    "to_mp",
-    "version",
-    "Bisection",
-    "Complex",
-    "Integer",
-    "Real",
-    "Secant",
-    "Tuple",
+# Reference implementation adds an attribute "__xsref" which can be used here to
+# concisely ensure that only reference implementations make it into __all__.
+__all__ = [
+    s for s, obj in globals().items()
+    if hasattr(obj, "__xsref")
 ]
-
-__all__ = [s for s in dir() if not s.startswith("_") and s not in _exclude]
