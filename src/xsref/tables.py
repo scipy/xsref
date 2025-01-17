@@ -1,6 +1,18 @@
+import hashlib
 import numpy as np
 import polars as pl
 import pyarrow.parquet as pq
+import warnings
+
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
+from multiprocessing import Lock
+from multiprocessing import Manager
+
+import xsref._reference._functions as xsref_funcs
+
+from xsref.float_tools import extended_relative_error
+from xsref._reference._framework import XSRefFallbackWarning
 
 
 def _process_arg(arg, typecode):
@@ -21,6 +33,29 @@ def _process_arg(arg, typecode):
             raise ValueError(f"Received unhandled typecode: {typecode}")
 
 
+def get_input_types(input_table_path):
+    """Get input types of function corresponding to table_path
+
+    Parameters
+    ----------
+    input_table_path : str
+        Path to a parquet table with rows corresponding to arguments to
+        a special function and in format used by xsref. float32, float64, int32
+        and int64 inputs have corresponding types in parquet. Complex inputs
+        are stored as structs {"real": x, "imag": y} where x and y have the
+        corresponding base type.
+
+    Returns
+    -------
+    str
+        A string of NumPy dtype typecodes corresponding to the input types
+        of the function for which the table at input_table_path is a
+        reference table.
+    """
+    metadata = pq.read_schema(input_table_path).metadata
+    return metadata[b"in"].decode("ascii")
+
+
 def iter_inputs_table(inputs_table_path):
     """Iterate through test cases in inputs parquet table.
 
@@ -38,11 +73,146 @@ def iter_inputs_table(inputs_table_path):
         Iterates through arguments which can be passed directly to a reference
         function.
     """
-    metadata = pq.read_schema(inputs_table_path).metadata
-    in_types = metadata[b"in"].decode("ascii")
+    in_types = get_input_types(inputs_table_path)
     table = pl.read_parquet(inputs_table_path)
     for row in table.iter_rows():
         yield tuple(
             _process_arg(x, typecode)
             for x, typecode in zip(row, in_types)
         )
+
+
+def init(shared_lock):
+    global _shared_lock
+
+
+def _evaluate(func, logpath, ertol, lock, args):
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always", XSRefFallbackWarning)
+        ref_results = func(*args)
+        fallback = any([x.category is XSRefFallbackWarning for x in w])
+
+    scipy_results = func._scipy_func(*args)
+    if not isinstance(scipy_results, tuple):
+        scipy_results = (scipy_results, )
+    if not isinstance(ref_results, tuple):
+        ref_results = (ref_results, )
+
+    if not len(scipy_results) == len(ref_results):
+        raise ValueError(
+            f"Reference function {func} returned a different"
+            " number of outputs from corresponding SciPy function"
+            f" {func._scipy_func} for args {args}."
+        )
+
+
+    if (
+            tuple((type(x)) for x in scipy_results)
+            != tuple(type(x) for x in ref_results)
+    ):
+        raise ValueError(
+            f"Reference function {func} returned outputs of different"
+            " type from corresponding SciPy function"
+            f" {func._scipy_func} for args {args}."
+        )
+
+    errors = []
+    for scipy_result, ref_result in zip(scipy_results, ref_results):
+        error = extended_relative_error(scipy_result, ref_result)
+        if logpath is not None and error >= ertol:
+            with lock:
+                if not os.path.exists(logpath):
+                    with open(logpath, 'w', newline='') as csvfile:
+                        csv.writer(csvfile, dialect="unix").writerow(
+                            [f"in{i}" for i in range(len(args))]
+                            + [f"ref_out{i}" for i in range(len(ref_results))]
+                            + [f"scipy_out{i}" for i in range(len(scipy_results))]
+                        )
+                with open(logpath, 'a', newline='') as csvfile:
+                    csv.writer(csvfile, dialect="unix").writerow(
+                        args + ref_results + scipy_results
+                    )
+    row = [
+        val if not np.issubdtype(val, np.complexfloating)
+        else {"real": val.real, "imag": val.imag}
+        for val in ref_results
+    ] + [fallback]
+    return row
+
+_shared_lock = Lock()
+
+
+def compute_output_table(inpath, *, logpath=None, ertol=1e-2, nworkers=1):
+    """Compute arrow table of outputs associated to parquet file with inputs
+
+    Parameters
+    ----------
+    inpath : str
+        Path to a parquet file of inputs of the kind accepted by xsref.  It has
+        columns for each input argument, of type ``f32``, ``f64``, ``int32``,
+        ``int64`` for these respective types, with ``complex64`` and
+        ``complex128`` arguments expressed as ``struct{"real": f32, "imag":
+        f32}`` and ``struct{"real": f64, "imag": f64}`` respectively. The
+        metadata contains the input types as an ascii encoded string of NumPy
+        dtype codes in the field ``b"in"``, the output types as a similar
+        string in the field ``b"out"``, and the associated `xsref` reference
+        function in the ascii encoded field ``b"function"``
+
+    logpath : Optional[str]
+        Path to where to store log for this run. If None, no log is stored.
+        The log is a csv file of rows where the associated SciPy function,
+        returns a value which differs from the arbitrary precision reference
+        function by an extended relative error greater than `ertol`. Each
+        row contains input arguments together with corresponding outputs
+        for first the reference implementation and then the SciPy
+        implementation. Default: ``None``
+
+    ertol : Optional[float]
+        Extended relative error cutoff for adding a row to the log. Extended
+        relative error is equal to relative error for non-exceptional values
+        (finite and non-zero), but is modified to still produce an informative
+        value when a comparison contains one or more exceptional values.
+        Default: ``1e-2``
+
+    nworkers : Optional[int]
+        Controls the max number of workers used by `ProcessPoolExecutor`.
+        Default: ``1``.
+
+    Returns
+    -------
+    pyarrow.lib.Table
+        An arrow table of outputs associated to the corresponding inputs, plus
+        a Boolean column ``"fallback"`` which takes value ``True`` if and only
+        if the reference computation fell back to a double precision
+        calculation in SciPy. The metadata for the input table is the same as
+        for the output table, except that there is a new entry
+        ``b"input_checksum"`` which contains a sha256 checksum of the input
+        table.
+    """
+    metadata = pq.read_schema(inpath).metadata
+    with open(inpath, "rb") as f:
+        content = f.read()
+        checksum = hashlib.sha256(content).hexdigest()
+    metadata[b"input_checksum"] = checksum.encode("ascii")
+
+    funcname = metadata[b"function"].decode("ascii")
+    func = getattr(xsref_funcs, funcname)
+
+    manager = Manager()
+    lock = manager.Lock()
+
+    with ProcessPoolExecutor(max_workers=nworkers) as executor:
+        results = executor.map(
+            partial(_evaluate, func, logpath, ertol, lock), iter_inputs_table(inpath)
+        )
+        results = list(results)
+        if not results:
+            return None
+
+    colnames = [f"out{i}" for i in range(len(metadata[b"out"]))] + ["fallback"]
+
+    df = pl.DataFrame(
+        results, orient="row", schema=colnames
+    ).to_arrow()
+    df = df.replace_schema_metadata(metadata)
+    return df
