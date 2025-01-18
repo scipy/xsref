@@ -1,13 +1,18 @@
+import csv
 import hashlib
+import mpmath
 import numpy as np
+import os
 import polars as pl
 import pyarrow.parquet as pq
+import subprocess
 import warnings
 
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 from multiprocessing import Lock
 from multiprocessing import Manager
+from pathlib import Path
 
 import xsref._reference._functions as xsref_funcs
 
@@ -142,6 +147,13 @@ def _evaluate(func, logpath, ertol, lock, args):
 _shared_lock = Lock()
 
 
+def _calculate_checksum(filepath):
+    with open(filepath, "rb") as f:
+        content = f.read()
+        checksum = hashlib.sha256(content).hexdigest()
+    return checksum
+
+
 def compute_output_table(inpath, *, logpath=None, ertol=1e-2, nworkers=1):
     """Compute arrow table of outputs associated to parquet file with inputs
 
@@ -159,12 +171,12 @@ def compute_output_table(inpath, *, logpath=None, ertol=1e-2, nworkers=1):
         function in the ascii encoded field ``b"function"``
 
     logpath : Optional[str]
-        Path to where to store log for this run. If None, no log is stored.
-        The log is a csv file of rows where the associated SciPy function,
-        returns a value which differs from the arbitrary precision reference
-        function by an extended relative error greater than `ertol`. Each
-        row contains input arguments together with corresponding outputs
-        for first the reference implementation and then the SciPy
+        Path to where to store log file for this run. If None, no log is
+        stored.  The log is a csv file of rows where the associated SciPy
+        function, returns a value which differs from the arbitrary precision
+        reference function by an extended relative error greater than
+        `ertol`. Each row contains input arguments together with corresponding
+        outputs for first the reference implementation and then the SciPy
         implementation. Default: ``None``
 
     ertol : Optional[float]
@@ -190,10 +202,17 @@ def compute_output_table(inpath, *, logpath=None, ertol=1e-2, nworkers=1):
         table.
     """
     metadata = pq.read_schema(inpath).metadata
-    with open(inpath, "rb") as f:
-        content = f.read()
-        checksum = hashlib.sha256(content).hexdigest()
+    checksum = _calculate_checksum(inpath)
     metadata[b"input_checksum"] = checksum.encode("ascii")
+    metadata[b"mpmath_version"] = mpmath.__version__.encode("ascii")
+    # Getting a commit hash requires an in-place build.
+    try:
+        commit_hash = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=Path(__file__).parent
+        ).strip()
+    except subprocess.CalledProcessError:
+        commit_hash = b""
+    metadata[b"commit_hash"] = commit_hash
 
     funcname = metadata[b"function"].decode("ascii")
     func = getattr(xsref_funcs, funcname)
@@ -211,8 +230,32 @@ def compute_output_table(inpath, *, logpath=None, ertol=1e-2, nworkers=1):
 
     colnames = [f"out{i}" for i in range(len(metadata[b"out"]))] + ["fallback"]
 
-    df = pl.DataFrame(
+    table = pl.DataFrame(
         results, orient="row", schema=colnames
     ).to_arrow()
-    df = df.replace_schema_metadata(metadata)
-    return df
+    table = table.replace_schema_metadata(metadata)
+    return table
+
+
+def main(path, *, logpath_root=None, force=False, ertol=1e-2, nworkers=1):
+    path = Path(path)
+    logpath_root = Path(logpath_root)
+    logpath_root.mkdir(exist_ok=True, parents=True)
+    for inpath in path.glob("**/In_*.parquet"):
+        outpath = inpath.parent / inpath.name.replace("In_", "Out_")
+        input_checksum = _calculate_checksum(inpath)
+        if os.path.exists(outpath):
+            output_metadata = pq.read_schema(outpath).metadata
+            if (
+                    input_checksum == output_metadata[b"input_checksum"].decode("ascii")
+                    and not force
+            ):
+                continue
+        logpath = logpath_root / inpath.relative_to(
+            inpath.parents[2]
+        ).with_suffix(".log")
+        logpath.parent.mkdir(exist_ok=True, parents=True)
+        table = compute_output_table(
+            inpath, logpath=logpath, ertol=ertol, nworkers=nworkers,
+        )
+        pq.write_table(table, outpath, compression="zstd", compression_level=22)
