@@ -197,9 +197,19 @@ def compute_output_table(inpath, *, logpath=None, ertol=1e-2, nworkers=1):
         a Boolean column ``"fallback"`` which takes value ``True`` if and only
         if the reference computation fell back to a double precision
         calculation in SciPy. The metadata for the input table is the same as
-        for the output table, except that there is a new entry
-        ``b"input_checksum"`` which contains a sha256 checksum of the input
-        table.
+        for the output table, except that there are new entries:
+
+        input_checksum
+            containing a sha256 checksum of the input parquet table.
+        mpmath_version
+            mpmath.__version__ at time of running
+        xsref_commit_hash
+            If using an in-place build, the current git commit hash for xsref.
+        working_tree_state
+            One of b"dirty" or b"clean".
+
+       These additional metadata items can be used to help verify the integrity
+       of reference tables.
     """
     metadata = pq.read_schema(inpath).metadata
     checksum = _calculate_checksum(inpath)
@@ -210,9 +220,15 @@ def compute_output_table(inpath, *, logpath=None, ertol=1e-2, nworkers=1):
         commit_hash = subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=Path(__file__).parent
         ).strip()
+        diff_index = subprocess.check_output(
+            ["git", "diff-index", "HEAD"], cwd=Path(__file__).parent
+        )
+        working_tree = b"dirty" if diff_index else b"clean"
     except subprocess.CalledProcessError:
         commit_hash = b""
-    metadata[b"commit_hash"] = commit_hash
+        working_tree = b""
+    metadata[b"xsref_commit_hash"] = commit_hash
+    metadata[b"working_tree_state"] = working_tree
 
     funcname = metadata[b"function"].decode("ascii")
     func = getattr(xsref_funcs, funcname)
