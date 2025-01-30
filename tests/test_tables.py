@@ -41,7 +41,7 @@ def assert_typecode_matches_datatype(typecode, datatype):
         case "p":
             # intp types are 32bit on 32bit platforms and 64bit on 64
             # bit platforms. This is the default numpy int. We store
-            # these as 64 bit and cast to the correct type and test
+            # these as 64 bit and cast to the correct type at test
             # time.
             assert datatype == pa.int64()
         case _:
