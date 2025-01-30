@@ -103,7 +103,7 @@ class TestTableIntegrity:
         assert input_metadata[b"in"] == intypes_filename.encode("ascii")
         assert input_metadata[b"out"] == outtypes_filename.encode("ascii")
 
-    def test_consistent_column_tables:
+    def test_consistent_column_types:
         # Test input and output types in parquet columns match input and
         # output types in metadata and filenames.
         input_schema = pq.read_schema(input_table_path)
