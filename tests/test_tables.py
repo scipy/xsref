@@ -69,7 +69,7 @@ class TestTableIntegrity:
         # Tests that signature in input table metadata matches that in the
         # output table metadata.
         input_metadata = pq.read_schema(input_table_path).metadata
-        output_metadata = pq.read_schema(output_table_path).metadataa
+        output_metadata = pq.read_schema(output_table_path).metadata
         assert input_metadata[b"in"] == output_metadata[b"in"]
         assert input_metadata[b"out"] == output_metadata[b"out"]
 
@@ -103,14 +103,30 @@ class TestTableIntegrity:
         assert input_metadata[b"in"] == intypes_filename.encode("ascii")
         assert input_metadata[b"out"] == outtypes_filename.encode("ascii")
 
-    def test_consistent_column_types:
+    def test_consistent_column_types(self, input_table_path, output_table_path):
         # Test input and output types in parquet columns match input and
         # output types in metadata and filenames.
         input_schema = pq.read_schema(input_table_path)
         output_schema = pq.read_schema(output_table_path)
-        in_types = input_schema.metadata[b"in"].decode("ascii")
-        out_types = input_schema.metadata[b"out"].decode("ascii")
-        for typecode, datatype in zip(in_types, input_schema.types):
+        in_typecodes = input_schema.metadata[b"in"].decode("ascii")
+        out_typecodes = input_schema.metadata[b"out"].decode("ascii")
+
+        in_types = input_schema.types
+        # Last column of output table is bool signifying whether reference
+        # value computed with an independent reference or not.
+        out_types = output_schema.types[:-1]
+
+        assert len(in_typecodes) == len(in_types)
+        assert len(out_typecodes) == len(out_types)
+
+        for typecode, datatype in zip(in_typecodes, in_types):
             assert_typecode_matches_datatype(typecode, datatype)
-        for typecode, datatype in zip(out_types, output_schema.types):
+        for typecode, datatype in zip(out_typecodes, out_types):
             assert_typecode_matches_datatype(typecode, datatype)
+
+    def test_num_rows_match(self, input_table_path, output_table_path):
+        # Check that the inputs table as the same number of rows as
+        # the outputs table.
+        input_table = pq.read_table(input_table_path)
+        output_table = pq.read_table(output_table_path)
+        assert len(input_table) == len(output_table)
