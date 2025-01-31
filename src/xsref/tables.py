@@ -280,7 +280,7 @@ def compute_output_table(inpath, *, logpath=None, ertol=1e-2, nworkers=1):
 
     with ProcessPoolExecutor(max_workers=nworkers) as executor:
         results = executor.map(
-            partial(_evaluate, func, logpath, ertol, lock), get_inputs_table(inpath)
+            partial(_evaluate, func, logpath, ertol, lock), get_input_rows(inpath)
         )
         results = list(results)
         if not results:
