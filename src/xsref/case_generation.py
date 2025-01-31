@@ -2,6 +2,8 @@ import inspect
 import os
 import csv
 import numpy as np
+import polars as pl
+import pyarrow.parquet as pq
 import re
 
 from multiprocessing import Lock
@@ -117,3 +119,61 @@ class TracedUfunc:
                 return test_file, test_name
             frame = frame.f_back
         return None, None
+
+
+def traced_cases_to_parquet(funcname, infiles, outpath, filename_prefix):
+    """Take a csv produced by TracedUfunc and produce parquet reference table."""
+    os.makedirs(outpath, exist_ok=True)
+    dtype_map = {
+        "f": np.float32,
+        "d": np.float64,
+        "F": np.complex64,
+        "D": np.complex128,
+        "p": np.int64,
+        "i": np.int32,
+    }
+    if isinstance(infiles, str):
+        infiles = [infiles]
+
+    new_rows = defaultdict(list)
+    for infile in infiles:
+        with open(infile, 'r', newline='') as csvfile:
+            for row in csv.reader(csvfile, dialect="unix"):
+                args = row[:-3]
+                types = row[-3]
+                in_types, out_types = types.split("->")
+                if len(args) != len(in_types):
+                    continue
+                try:
+                    args = [
+                        str(dtype_map[typecode](arg)) for typecode, arg in zip(in_types, args)
+                    ]
+                except KeyError:
+                    continue
+                new_rows[types].append(args)
+
+        for types, rows in new_rows.items():
+            in_types, _ = types.split("->")
+            dtypes = [dtype_map[typecode] for typecode in in_types]
+            df = pl.DataFrame(rows, orient="row").unique()
+            df.columns = [f"in{i}" for i in range(len(df.columns))]
+            df = df.with_columns(
+                *(
+                    _parse_column(df[colname], dtype).alias(f"in{i}")
+                    for i, (colname, dtype) in enumerate(zip(df.columns, dtypes))
+                )
+            )
+            df = df.to_arrow()
+            types = types.replace("->", "-")
+            in_types, out_types = types.split("-")
+            metadata = {
+                b"in": in_types.encode("ascii"),
+                b"out": out_types.encode("ascii"),
+                b"function": funcname.encode("ascii")
+            }
+            df = df.replace_schema_metadata(metadata)
+            pq.write_table(df,
+                os.path.join(outpath, f"{filename_prefix}_{types}.parquet"),
+                compression="zstd",
+                compression_level=22,
+            )
