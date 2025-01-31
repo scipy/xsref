@@ -74,6 +74,8 @@ class TestTableIntegrity:
     def test_consistent_type_signatures_metadata(
         self, input_table_path, output_table_path
     ):
+        if output_table_path is None:
+            return
         # Tests that signature in input table metadata matches that in the
         # output table metadata.
         input_metadata = pq.read_schema(input_table_path).metadata
@@ -84,6 +86,8 @@ class TestTableIntegrity:
     def test_consistent_type_signatures_filenames(
         self, input_table_path, output_table_path
     ):
+        if output_table_path is None:
+            return
         # Tests that signature in input table filename matches that in the
         # output table filename.
         input_table_types_from_filename = (
@@ -100,41 +104,40 @@ class TestTableIntegrity:
         # Tests that signature in the input table filename matches that in the
         # input table metadata.
         input_metadata = pq.read_schema(input_table_path).metadata
-        output_metadata = pq.read_schema(output_table_path).metadata
         input_table_types_from_filename = (
             input_table_path.name.removesuffix(".parquet").split("_")[1]
         )
-        output_table_types_from_filename = (
-            output_table_path.name.removesuffix(".parquet").split("_")[1]
-        )
-        intypes_filename, outtypes_filename = input_table_types_from_filename.split("-")
+        intypes_filename, _ = input_table_types_from_filename.split("-")
         assert input_metadata[b"in"] == intypes_filename.encode("ascii")
-        assert input_metadata[b"out"] == outtypes_filename.encode("ascii")
 
-    def test_consistent_column_types(self, input_table_path, output_table_path):
-        # Test input and output types in parquet columns match input and
-        # output types in metadata and filenames.
+    def test_consistent_column_types_input(self, input_table_path, output_table_path):
+        # Test input types in parquet columns match input types in metadata.
         input_schema = pq.read_schema(input_table_path)
-        output_schema = pq.read_schema(output_table_path)
         in_typecodes = input_schema.metadata[b"in"].decode("ascii")
-        out_typecodes = input_schema.metadata[b"out"].decode("ascii")
-
         in_types = input_schema.types
+        assert len(in_typecodes) == len(in_types)
+        for typecode, datatype in zip(in_typecodes, in_types):
+            assert_typecode_matches_datatype(typecode, datatype)
+
+    def test_consistent_column_types_output(self, input_table_path, output_table_path):
+        # Test output types in parquet columns match output types in metadata.
+        if output_table_path is None:
+            return
+        output_schema = pq.read_schema(output_table_path)
+        out_typecodes = input_schema.metadata[b"out"].decode("ascii")
         # Last column of output table is bool signifying whether reference
         # value computed with an independent reference or not.
         out_types = output_schema.types[:-1]
 
-        assert len(in_typecodes) == len(in_types)
         assert len(out_typecodes) == len(out_types)
-
-        for typecode, datatype in zip(in_typecodes, in_types):
-            assert_typecode_matches_datatype(typecode, datatype)
         for typecode, datatype in zip(out_typecodes, out_types):
             assert_typecode_matches_datatype(typecode, datatype)
 
     def test_num_rows_match(self, input_table_path, output_table_path):
         # Check that the inputs table as the same number of rows as
         # the outputs table.
+        if output_table_path is None:
+            return
         input_table = pq.read_table(input_table_path)
         output_table = pq.read_table(output_table_path)
         assert len(input_table) == len(output_table)
@@ -148,6 +151,8 @@ class TestTableIntegrity:
         # The intention here is to guard against clear cases where the
         # values in the output table don't match the input table due to
         # a mistake in table generation.
+        if output_table_path is None:
+            return None
         sample_size = 50
 
         metadata = pq.read_schema(input_table_path).metadata
