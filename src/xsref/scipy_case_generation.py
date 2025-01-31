@@ -1,3 +1,4 @@
+import argparse
 import inspect
 import os
 import csv
@@ -6,8 +7,11 @@ import polars as pl
 import pyarrow.parquet as pq
 import re
 
+from collections import defaultdict
 from multiprocessing import Lock
 from pathlib import Path
+
+import xsref
 
 
 __all__ = ["TracedUfunc"]
@@ -123,9 +127,26 @@ class TracedUfunc:
         return None, None
 
 
-def traced_cases_to_parquet(funcname, infiles, outpath, filename_prefix):
+def _parse_column(col, dtype):
+    if dtype is np.complex64 or dtype is np.complex128:
+        col = col.to_numpy().astype(dtype)
+        real = pl.Series(col.real)
+        imag = pl.Series(col.imag)
+        return pl.DataFrame({"real": real, "imag": imag}).to_struct()
+    if dtype is np.float64:
+        return col.cast(pl.Float64)
+    if dtype is np.float32:
+        return col.cast(pl.Float32)
+    if dtype is np.int32:
+        return col.cast(pl.Int32)
+    if dtype is np.int64:
+        return col.cast(pl.Int64)
+    raise ValueError(f"unsupported dtype: {dtype}")
+
+
+def traced_cases_to_parquet(funcname, infiles, outdir):
     """Take a csv produced by TracedUfunc and produce parquet reference table."""
-    os.makedirs(outpath, exist_ok=True)
+    outdir = Path(outdir)
     dtype_map = {
         "f": np.float32,
         "d": np.float64,
@@ -175,7 +196,44 @@ def traced_cases_to_parquet(funcname, infiles, outpath, filename_prefix):
             }
             df = df.replace_schema_metadata(metadata)
             pq.write_table(df,
-                os.path.join(outpath, f"{filename_prefix}_{types}.parquet"),
+                outdir / f"In_{types}.parquet",
                 compression="zstd",
                 compression_level=22,
             )
+
+
+def get_scipy_to_xsref_funcname_map():
+    result = {}
+    for symbol in xsref.__all__:
+        obj = getattr(xsref, symbol)
+        if hasattr(obj, "_scipy_func"):
+            result[obj._scipy_func.__name__] = obj.__name__
+    return result
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("inpath_root")
+    parser.add_argument("outpath_root")
+    args = parser.parse_args()
+
+    inpath_root = Path(args.inpath_root)
+    outpath_root = Path(args.outpath_root)
+
+    scipy_to_xsref_funcname_map = get_scipy_to_xsref_funcname_map()
+
+    # In some cases, there are multiple SciPy ufuncs which correspond
+    # to the same underlying implementation in xsf and thus the same
+    # xsref reference implementation. This loop collects all csv files
+    # corresponding to cases for a given xsref reference implementation.
+    xsref_func_to_case_files_map = defaultdict(list)
+    for inpath in inpath_root.glob("*.csv"):
+        scipy_func = inpath.name.removesuffix(".csv")
+        xsref_func = scipy_to_xsref_funcname_map.get(scipy_func)
+        if xsref_func is not None:
+            xsref_func_to_case_files_map[xsref_func].append(inpath)
+
+    for funcname, filepaths in xsref_func_to_case_files_map.items():
+        outdir = outpath_root / funcname / "scipy_special_tests"
+        outdir.mkdir(exist_ok=True, parents=True)
+        traced_cases_to_parquet(funcname, filepaths, outdir)
