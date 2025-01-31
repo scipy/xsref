@@ -24,6 +24,8 @@ class TracedUfunc:
 
     with
 
+        from xsref.scipy_case_generation import TracedUfunc
+
         from . import _ufuncs
         for func_name in dir(_ufuncs):
             if func_name.startswith("__") or func_name in ["seterr", "geterr", "errstate"]:
