@@ -38,12 +38,12 @@ def _process_arg(arg, typecode):
             raise ValueError(f"Received unhandled typecode: {typecode}")
 
 
-def get_input_types(input_table_path):
+def get_in_out_types(table_path):
     """Get input types of function corresponding to table_path
 
     Parameters
     ----------
-    input_table_path : str
+    table_path : str
         Path to a parquet table with rows corresponding to arguments to
         a special function and in format used by xsref. float32, float64, int32
         and int64 inputs have corresponding types in parquet. Complex inputs
@@ -52,39 +52,81 @@ def get_input_types(input_table_path):
 
     Returns
     -------
-    str
-        A string of NumPy dtype typecodes corresponding to the input types
-        of the function for which the table at input_table_path is a
-        reference table.
+    tuple of str
+        Strings of NumPy dtype typecodes corresponding to the input types
+        and output_types respectively for the given reference table.
     """
-    metadata = pq.read_schema(input_table_path).metadata
-    return metadata[b"in"].decode("ascii")
+    metadata = pq.read_schema(table_path).metadata
+    return metadata[b"in"].decode("ascii"), metadata[b"out"].decode("ascii")
 
 
-def iter_inputs_table(inputs_table_path):
-    """Iterate through test cases in inputs parquet table.
+def get_input_rows(table_path):
+    """Return test cases from inputs parquet table.
 
     Parameters
     ----------
-    inputs_table_path : str
+    table_path : str
         Path to a parquet table with rows corresponding to arguments to
         a special function and in format used by xsref. float32, float64, int32
         and int64 inputs have corresponding types in parquet. Complex inputs
         are stored as structs {"real": x, "imag": y} where x and y have the
         corresponding base type.
+        
     Returns
     -------
-    iterator of tuple
-        Iterates through arguments which can be passed directly to a reference
-        function.
+    List of tuple
+        Arguments for reference function from reference table.
     """
-    in_types = get_input_types(inputs_table_path)
-    table = pl.read_parquet(inputs_table_path)
+    input_types, _ = get_in_out_types(table_path)
+    table = pl.read_parquet(table_path)
+
+    results = []
     for row in table.iter_rows():
-        yield tuple(
-            _process_arg(x, typecode)
-            for x, typecode in zip(row, in_types)
+        results.append(
+            tuple(
+                _process_arg(x, typecode)
+                for x, typecode in zip(row, input_types)
+            )
         )
+    return results
+
+
+def get_output_rows(table_path):
+    """Return test case reference values from outputs parquet table.
+
+    Parameters
+    ----------
+    table_path : str
+        Path to a parquet table with rows corresponding to outputs of a a
+        special function and in format used by xsref. float32, float64, int32
+        and int64 inputs have corresponding types in parquet. Complex outputs
+        are stored as structs {"real": x, "imag": y} where x and y have the
+        corresponding base type. The final column is named ``"fallback"`` and
+        is of type ``bool``. ``"fallback"`` holds value True if the reference
+        value was taken from SciPy or xsf itself, and is thus not an
+        independent reference value.  This is done on a temporary basis to
+        guard against regressions if a reference implementation has not yet
+        been implemented for a function in a given parameter regime.
+        
+    Returns
+    -------
+    List of tuple
+        Outputs for reference function from reference table.
+    """
+    _, output_types = get_in_out_types(table_path)
+    table = pl.read_parquet(table_path)
+
+    results = []
+    for row in table.iter_rows():
+        # Exclude final "fallback" column.
+        row = row[:-1]
+        results.append(
+            tuple(
+                _process_arg(x, typecode)
+                for x, typecode in zip(row, output_types)
+            )
+        )
+    return results
 
 
 def init(shared_lock):
@@ -238,7 +280,7 @@ def compute_output_table(inpath, *, logpath=None, ertol=1e-2, nworkers=1):
 
     with ProcessPoolExecutor(max_workers=nworkers) as executor:
         results = executor.map(
-            partial(_evaluate, func, logpath, ertol, lock), iter_inputs_table(inpath)
+            partial(_evaluate, func, logpath, ertol, lock), get_inputs_table(inpath)
         )
         results = list(results)
         if not results:

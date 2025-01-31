@@ -2,6 +2,7 @@ import math
 import numpy as np
 import scipy.special._ufuncs as ufuncs
 import sys
+import warnings
 
 from mpmath import mp  # type: ignore
 from mpmath.calculus.optimization import Bisection, Secant
@@ -12,7 +13,7 @@ from numpy import integer as Integer
 from numpy import floating as Real
 from numpy import complexfloating as Complex
 
-from ._framework import reference_implementation
+from ._framework import reference_implementation, XSRefFallbackWarning
 
 
 def is_complex(x):
@@ -53,7 +54,7 @@ def get_resolution_precision(*, x=None, log2abs_x=None):
     ``float((1 + x) - 1)`` will recover `x` with no loss of precision
     due to catastrophic cancellation.
     """
-    if x is not None and log_abs_x is not None:
+    if x is not None and log2abs_x is not None:
         raise ValueError
     if x is not None:
         if x == 0 or not mp.isfinite(x):
