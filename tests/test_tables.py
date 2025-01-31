@@ -1,12 +1,20 @@
+import numpy as np
 import os
 import polars as pl
+import pprint
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
+import warnings
 
+from numpy.testing import assert_allclose
 from pathlib import Path
 
-from xsref.tables import _calculate_checksum
+import xsref
+
+from xsref.float_tools import extended_relative_error
+from xsref.tables import _calculate_checksum, get_input_rows, get_output_rows
+from xsref._reference._framework import XSRefFallbackWarning
 
 
 def get_tables_paths():
@@ -130,3 +138,56 @@ class TestTableIntegrity:
         input_table = pq.read_table(input_table_path)
         output_table = pq.read_table(output_table_path)
         assert len(input_table) == len(output_table)
+
+    def test_consistent_values_in_sample(
+        self, input_table_path, output_table_path
+    ):
+        # Test, for a sample of up to 50 rows, that the values in the outputs
+        # table match those produced by the reference implementation applied
+        # to the arguments in the input table.
+        # The intention here is to guard against clear cases where the
+        # values in the output table don't match the input table due to
+        # a mistake in table generation.
+        sample_size = 50
+
+        metadata = pq.read_schema(input_table_path).metadata
+        funcname = metadata[b"function"].decode("ascii")
+        reference_function = getattr(xsref, funcname)
+
+        input_rows = get_input_rows(input_table_path)
+        output_rows = get_output_rows(output_table_path)
+        # Taken from np.random.SeedSequence().entropy
+        rng = np.random.default_rng(193593065528841791192389103277805828993)
+        idx = np.arange(len(input_rows))
+        if len(input_rows) > sample_size:
+            idx = rng.choice(idx, size=sample_size, replace=False)
+        input_rows = [row for i, row in enumerate(input_rows) if i in idx]
+        output_rows = [row for i, row in enumerate(output_rows) if i in idx]
+        for args, expected_results in zip(input_rows, output_rows):
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", XSRefFallbackWarning)
+                observed_results = reference_function(*args)
+            if not isinstance(observed_results, tuple):
+                observed_results = (observed_results, )
+            failures = []
+            for observed, expected in zip(observed_results, expected_results):
+                ok = (
+                    np.isclose(observed, expected, rtol=np.finfo(observed).eps)
+                    or np.isnan(observed) and np.isnan(expected)
+                )
+                if not ok:
+                    failures.append(
+                        {
+                         "args": args,
+                         "observed": observed_results,
+                         "expected": expected_results
+                        }
+                    )
+                    break
+            if failures:
+                raise AssertionError(
+                    f"Mismatches between table at {output_table_path}"
+                    " and results of reference implementation on"
+                    f" {input_table_path}:\n\n{pprint.pformat(failures, indent=4)}"
+                )
