@@ -227,7 +227,7 @@ def betaincc(a: Real, b: Real, x: Real) -> Real:
     return mp.betainc(a, b, x, 1.0, regularized=True)
 
 
-@reference_implementation(scipy=ufuncs.betaincinv)
+@reference_implementation(scipy=ufuncs.betaincinv, default_timeout=10)
 def betaincinv(a: Real, b: Real, y: Real) -> Real:
     """Inverse of the regularized incomplete beta function."""
     def f(x):
@@ -236,7 +236,7 @@ def betaincinv(a: Real, b: Real, y: Real) -> Real:
     return solve_bisect(f, 0, 1)
 
 
-@reference_implementation(scipy=ufuncs.betainccinv)
+@reference_implementation(scipy=ufuncs.betainccinv, default_timeout=10)
 def betainccinv(a: Real, b: Real, y: Real) -> Real:
     """Inverse of the complemented regularized incomplete beta function."""
     def f(x):
