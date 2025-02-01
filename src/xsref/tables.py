@@ -33,7 +33,7 @@ def _process_arg(arg, typecode):
         case "i":
             return np.int32(arg)
         case "p":
-            return np.intp(arg)
+            return np.int64(arg)
         case "_":
             raise ValueError(f"Received unhandled typecode: {typecode}")
 
