@@ -196,6 +196,21 @@ def _calculate_checksum(filepath):
     return checksum
 
 
+def numpy_typecode_to_polars_type(typecode):
+    mapping = {
+        "d": pl.Float64,
+        "f": pl.Float32,
+        "p": pl.Int64,
+        "i": pl.Int64,
+        "D": pl.Struct({"real": pl.Float64, "imag": pl.Float64}),
+        "F": pl.Struct({"real": pl.Float32, "imag": pl.Float32}),
+    }
+    data_type = mapping.get(typecode)
+    if data_type is None:
+        raise ValueError(f"Received unsupported typecode, {typecode}")
+    return data_type
+
+
 def compute_output_table(inpath, *, logpath=None, ertol=1e-2, nworkers=1):
     """Compute arrow table of outputs associated to parquet file with inputs
 
@@ -286,11 +301,13 @@ def compute_output_table(inpath, *, logpath=None, ertol=1e-2, nworkers=1):
         if not results:
             return None
 
-    colnames = [f"out{i}" for i in range(len(metadata[b"out"]))] + ["fallback"]
+    schema = {
+        f"out{i}": numpy_typecode_to_polars_type(typecode)
+        for i, typecode in enumerate(metadata[b"out"].decode("ascii"))
+    }
+    schema["fallback"] = pl.Boolean
 
-    table = pl.DataFrame(
-        results, orient="row", schema=colnames
-    ).to_arrow()
+    table = pl.DataFrame(results, orient="row", schema=schema).to_arrow()
     table = table.replace_schema_metadata(metadata)
     return table
 
