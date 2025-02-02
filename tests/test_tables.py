@@ -124,7 +124,7 @@ class TestTableIntegrity:
         if output_table_path is None:
             return
         output_schema = pq.read_schema(output_table_path)
-        out_typecodes = input_schema.metadata[b"out"].decode("ascii")
+        out_typecodes = output_schema.metadata[b"out"].decode("ascii")
         # Last column of output table is bool signifying whether reference
         # value computed with an independent reference or not.
         out_types = output_schema.types[:-1]
