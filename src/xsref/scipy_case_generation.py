@@ -234,6 +234,6 @@ if __name__ == "__main__":
             xsref_func_to_case_files_map[xsref_func].append(inpath)
 
     for funcname, filepaths in xsref_func_to_case_files_map.items():
-        outdir = outpath_root / funcname / "scipy_special_tests"
+        outdir = outpath_root / "scipy_special_tests" / funcname
         outdir.mkdir(exist_ok=True, parents=True)
         traced_cases_to_parquet(funcname, filepaths, outdir)
