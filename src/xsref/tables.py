@@ -1,3 +1,4 @@
+import argparse
 import csv
 import hashlib
 import mpmath
@@ -312,11 +313,11 @@ def compute_output_table(inpath, *, logpath=None, ertol=1e-2, nworkers=1):
     return table
 
 
-def main(path, *, logpath_root=None, force=False, ertol=1e-2, nworkers=1):
-    path = Path(path)
+def main(inpath_root, *, logpath_root=None, force=False, ertol=1e-2, nworkers=1):
+    inpath_root = Path(inpath_root)
     logpath_root = Path(logpath_root)
     logpath_root.mkdir(exist_ok=True, parents=True)
-    for inpath in path.glob("**/In_*.parquet"):
+    for inpath in inpath_root.glob("**/In_*.parquet"):
         outpath = inpath.parent / inpath.name.replace("In_", "Out_")
         input_checksum = _calculate_checksum(inpath)
         if os.path.exists(outpath):
@@ -334,3 +335,44 @@ def main(path, *, logpath_root=None, force=False, ertol=1e-2, nworkers=1):
             inpath, logpath=logpath, ertol=ertol, nworkers=nworkers,
         )
         pq.write_table(table, outpath, compression="zstd", compression_level=22)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "inpath_root",
+        type=str,
+        help="The root directory where input parquet files are located."
+    )
+    parser.add_argument(
+        "--logpath_root",
+        type=str,
+        default=None,
+        help="The directory where log files will be saved. Defaults to None.",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force processing even if output already exists and checksums match.",
+    )
+    parser.add_argument(
+        "--ertol",
+        type=float,
+        default=1e-2,
+        help="Error tolerance for cases that end up in log (default: 1e-2).",
+    )
+    parser.add_argument(
+        "--nworkers",
+        type=int,
+        default=1,
+        help="Number of workers to use for computation (default: 1).",
+    )
+
+    args = parser.parse_args()
+    main(
+        args.inpath_root,
+        logpath_root=args.logpath_root,
+        force=args.force,
+        ertol=args.ertol,
+        nworkers=args.nworkers,
+    )
