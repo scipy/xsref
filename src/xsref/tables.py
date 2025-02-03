@@ -337,8 +337,35 @@ def main(inpath_root, *, logpath_root=None, force=False, ertol=1e-2, nworkers=1)
         pq.write_table(table, outpath, compression="zstd", compression_level=22)
 
 
+# The script below uses the xsref reference implementations to generate parquet
+# files with reference outputs corresponding to the input parquet files
+# under (potentially recursively) inpath_root. The logs placed under --logpath_root
+# in folders that match the directory structure under inpath_root contain cases
+# where the difference between the test cases under SciPy 1.15.1 and the reference
+# implementation differ. This is particularly useful for the first
+# batch of test cases which are taken from the scipy.special tests, because presumably
+# these should all pass (though there are some tests marked xfail).
+
+# Multiprocessing is used to speed things up, but the way it's used could be improved.
+# Right now processes can starve when the number of cores is large, because processes
+# are split up one input file at a time, and many of the input files are small.
+# This could be improved by batching up cases from all input files at once, something
+# which should eventually be pursued, but hasn't been yet because this is good
+# enough.
+
+# example use
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description=(
+            "Generate reference output parquet files corresponding to input"
+            " parquet files under inpath_root (searches directories recursively"
+            " for all with filename matching the pattern \"In_*.parquet\" and"
+            " generates the corresponding output files as alongside them as "
+            " \"Out_*.parquet\"."
+        )
+    )
     parser.add_argument(
         "inpath_root",
         type=str,
@@ -359,7 +386,7 @@ if __name__ == "__main__":
         "--ertol",
         type=float,
         default=1e-2,
-        help="Error tolerance for cases that end up in log (default: 1e-2).",
+        help="Error tolerance for cases that end up in the logs (default: 1e-2).",
     )
     parser.add_argument(
         "--nworkers",
