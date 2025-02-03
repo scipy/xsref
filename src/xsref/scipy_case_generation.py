@@ -213,8 +213,17 @@ def get_scipy_to_xsref_funcname_map():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("inpath_root")
-    parser.add_argument("outpath_root")
+    parser.add_argument(
+        "inpath_root",
+        type=str,
+        help="Root directory where csv files of test cases are stored."
+    )
+    parser.add_argument(
+        "outpath_root",
+        type=str,
+        help="Root directory where output files will be stored. Typically"
+        " xsref/tables."
+    )
     args = parser.parse_args()
 
     inpath_root = Path(args.inpath_root)
