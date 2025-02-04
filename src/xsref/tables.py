@@ -5,7 +5,9 @@ import mpmath
 import numpy as np
 import os
 import polars as pl
+import pyarrow as pa
 import pyarrow.parquet as pq
+import scipy
 import subprocess
 import warnings
 
@@ -14,6 +16,7 @@ from functools import partial
 from multiprocessing import Lock
 from multiprocessing import Manager
 from pathlib import Path
+
 
 import xsref._reference._functions as xsref_funcs
 
@@ -197,6 +200,22 @@ def _calculate_checksum(filepath):
     return checksum
 
 
+def _get_git_info():
+    # Getting a commit hash requires an in-place build.
+    try:
+        commit_hash = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=Path(__file__).parent
+        ).strip()
+        diff_index = subprocess.check_output(
+            ["git", "diff-index", "HEAD"], cwd=Path(__file__).parent
+        )
+        working_tree = b"dirty" if diff_index else b"clean"
+    except subprocess.CalledProcessError:
+        commit_hash = b""
+        working_tree = b""
+    return commit_hash, working_tree
+
+
 def numpy_typecode_to_polars_type(typecode):
     mapping = {
         "d": pl.Float64,
@@ -273,18 +292,9 @@ def compute_output_table(inpath, *, logpath=None, ertol=1e-2, nworkers=1):
     checksum = _calculate_checksum(inpath)
     metadata[b"input_checksum"] = checksum.encode("ascii")
     metadata[b"mpmath_version"] = mpmath.__version__.encode("ascii")
-    # Getting a commit hash requires an in-place build.
-    try:
-        commit_hash = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=Path(__file__).parent
-        ).strip()
-        diff_index = subprocess.check_output(
-            ["git", "diff-index", "HEAD"], cwd=Path(__file__).parent
-        )
-        working_tree = b"dirty" if diff_index else b"clean"
-    except subprocess.CalledProcessError:
-        commit_hash = b""
-        working_tree = b""
+
+    commit_hash, working_tree = _get_git_info()
+
     metadata[b"xsref_commit_hash"] = commit_hash
     metadata[b"working_tree_state"] = working_tree
 
@@ -311,6 +321,67 @@ def compute_output_table(inpath, *, logpath=None, ertol=1e-2, nworkers=1):
     table = pl.DataFrame(results, orient="row", schema=schema).to_arrow()
     table = table.replace_schema_metadata(metadata)
     return table
+
+
+def compute_initial_err_table(inpath):
+    """Use SciPy to calculate initial table of expected errors for xsref
+
+    Parameters
+    ----------
+    inpath : str
+        Path to a parquet file with inputs for test cases
+
+    Returns
+    -------
+    pyarrow.lib.Table
+
+    Rows correspond to test cases and columns to outputs. Entries contain
+    the extended relative error between the expected result from the xsref
+    reference and what is computed with SciPy. The idea is that the initial
+    tolerances for all test cases will be based on the existing extended
+    relative errors between xsref and SciPy.
+    """
+    inpath = Path(inpath)
+    outpath = inpath.parent / inpath.name.replace("In_", "Out_")
+    if not os.path.exists(outpath):
+        return None
+    metadata = pq.read_schema(inpath).metadata
+    funcname = metadata[b"function"].decode("ascii")
+    xsref_func = getattr(xsref_funcs, funcname)
+    scipy_func = xsref_func._scipy_func
+    
+    input_rows = np.asarray(get_input_rows(inpath)).T.tolist()
+    output_rows = np.asarray(get_output_rows(outpath)).T
+
+    observed_output = np.asarray(scipy_func(*input_rows))
+
+    err = extended_relative_error(output_rows, observed_output)
+
+    tol_table = pa.table(
+        {f"err{i}": pa.array(err[i, :]) for i in range(err.shape[0])}
+    )
+
+    input_checksum = _calculate_checksum(inpath)
+    output_checksum = _calculate_checksum(outpath)
+
+    scipy_config = scipy.__config__.show(mode="dicts")
+    cpp_compiler = scipy_config["Compilers"]["c++"]
+    architecture = scipy_config["Machine Information"]["host"]["cpu"]
+    operating_system = scipy_config["Machine Information"]["host"]["system"]
+
+    metadata[b"input_checksum"] = input_checksum.encode("ascii")
+    metadata[b"output_checksum"] = output_checksum.encode("ascii")
+    metadata[b"scipy_version"] = scipy.__version__.encode("ascii")
+    metadata[b"cpp_compiler"] = cpp_compiler["name"].encode("ascii")
+    metadata[b"cpp_compiler_version"] = cpp_compiler["version"].encode("ascii")
+    metadata[b"architecture"] = architecture.encode("ascii")
+    metadata[b"operating_system"] = operating_system.encode("ascii")
+    commit_hash, working_tree = _get_git_info()
+    metadata[b"xsref_commit_hash"] = commit_hash
+    metadata[b"working_tree_state"] = working_tree
+
+    tol_table = tol_table.replace_schema_metadata(metadata)
+    return tol_table
 
 
 def main(inpath_root, *, logpath_root=None, force=False, ertol=1e-2, nworkers=1):
@@ -344,7 +415,7 @@ def main(inpath_root, *, logpath_root=None, force=False, ertol=1e-2, nworkers=1)
 # where the difference between the test cases under SciPy 1.15.1 and the reference
 # implementation differ. This is particularly useful for the first
 # batch of test cases which are taken from the scipy.special tests, because presumably
-# these should all pass (though there are some tests marked xfail).
+# these should all pass (except those which were marked xfail).
 
 # Multiprocessing is used to speed things up, but the way it's used could be improved.
 # Right now processes can starve when the number of cores is large, because processes
