@@ -96,6 +96,7 @@ def _extended_relative_error_complex(
         return abs_error / abs(desired)
 
 
+@np.vectorize
 def extended_absolute_error(actual, desired):
     if np.issubdtype(type(actual), np.complexfloating):
         return _extended_absolute_error_complex(actual, desired)
@@ -108,6 +109,7 @@ def extended_absolute_error(actual, desired):
     )
 
 
+@np.vectorize
 def extended_relative_error(actual, desired):
     if np.issubdtype(type(actual), np.complexfloating):
         return _extended_relative_error_complex(actual, desired)
