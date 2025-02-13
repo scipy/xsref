@@ -92,9 +92,11 @@ def _extended_relative_error_complex(actual, desired):
         return (abs_error / 2) / abs(desired / 2)
     return abs_error / abs(desired)
 
+# We wrap the vectorized functions so that they will not raise
+# RuntimeWarning's if the output is nan or inf.
 
 @np.vectorize
-def extended_absolute_error(actual, desired):
+def _extended_absolute_error(actual, desired):
     if np.issubdtype(type(actual), np.complexfloating):
         return _extended_absolute_error_complex(actual, desired)
     if np.issubdtype(type(actual), np.floating):
@@ -107,7 +109,7 @@ def extended_absolute_error(actual, desired):
 
 
 @np.vectorize
-def extended_relative_error(actual, desired):
+def _extended_relative_error(actual, desired):
     if np.issubdtype(type(actual), np.complexfloating):
         return _extended_relative_error_complex(actual, desired)
     if np.issubdtype(type(actual), np.floating):
@@ -117,3 +119,15 @@ def extended_relative_error(actual, desired):
         " Arguments must be a subdtype of np.floating or"
         " np.complexfloating."
     )
+
+
+def extended_absolute_error(actual, desired):
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always", RuntimeWarning)
+        return _extended_absolute_error(actual, desired)
+
+
+def extended_relative_error(actual, desired):
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always", RuntimeWarning)
+        return _extended_relative_error(actual, desired)
