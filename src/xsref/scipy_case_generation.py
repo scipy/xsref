@@ -195,6 +195,10 @@ def traced_cases_to_parquet(funcname, infiles, outdir):
                 b"function": funcname.encode("ascii")
             }
             df = df.replace_schema_metadata(metadata)
+            # Need to generate filenames based on the types which will still
+            # work on case insensitive filenames.
+            in_types = "_".join(in_types).replace("D", "cd").replace("F", "cf")
+            out_types = "_".join(out_types).replace("D", "cd").replace("F", "cf")
             pq.write_table(df,
                 outdir / f"In_{types}.parquet",
                 compression="zstd",
