@@ -350,12 +350,11 @@ def compute_initial_err_table(inpath):
     xsref_func = getattr(xsref_funcs, funcname)
     scipy_func = xsref_func._scipy_func
     
-    input_rows = np.asarray(get_input_rows(inpath)).T.tolist()
-    output_rows = np.asarray(get_output_rows(outpath)).T
+    input_rows = get_input_rows(inpath)
+    reference_output_rows = np.asarray(get_output_rows(outpath)).T
+    observed_output = np.asarray(scipy_func(*zip(*input_rows)))
 
-    observed_output = np.asarray(scipy_func(*input_rows))
-
-    err = extended_relative_error(output_rows, observed_output)
+    err = extended_relative_error(reference_output_rows, observed_output)
 
     tol_table = pa.table(
         {f"err{i}": pa.array(err[i, :]) for i in range(err.shape[0])}
