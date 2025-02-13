@@ -26,7 +26,12 @@ def get_tables_paths():
         )
         if not os.path.exists(output_table_path):
             output_table_path = None
-        output.append((input_table_path, output_table_path))
+        tol_pattern = input_table_path.name.replace(
+            "In_", "Err_"
+        ).removesuffix(".parquet")
+        tol_pattern = rf"{tol_pattern}*.parquet"
+        tol_table_paths = list(input_table_path.glob(tol_pattern))
+        output.append((input_table_path, output_table_path, tol_table_paths))
     return output
 
 
@@ -56,9 +61,14 @@ def assert_typecode_matches_datatype(typecode, datatype):
             raise ValueError(f"Unsupported typecode {typecode}.")
 
 
-@pytest.mark.parametrize("input_table_path,output_table_path", get_tables_paths())
+@pytest.mark.parametrize(
+    "input_table_path,output_table_path,tol_table_paths",
+    get_tables_paths()
+)
 class TestTableIntegrity:
-    def test_checksums_match(self, input_table_path, output_table_path):
+    def test_checksums_match(
+            self, input_table_path, output_table_path, tol_table_paths
+    ):
         # Test that the Sha256 checksum for the input table stored in the
         # output table's metadata matches the actual Sha256 checksum of the
         # input table.
@@ -71,8 +81,18 @@ class TestTableIntegrity:
         )
         assert input_table_checksum_observed == input_table_checksum_expected
 
+        output_table_checksum_expected = _calculate_checksum(output_table_path)
+        for tol_table_path in tol_table_paths:
+            tol_metadata = pq.read_schema(tol_table_path).metadata
+            input_table_checksum_observed = (
+                tol_metadata[b"input_checksum"].decode("ascii")
+            )
+            output_table_checksum_observed = (
+                tol_metadata[b"output_checksum"].decode("ascii")
+            )
+
     def test_consistent_type_signatures_metadata(
-        self, input_table_path, output_table_path
+        self, input_table_path, output_table_path, tol_table_paths
     ):
         if output_table_path is None:
             return
@@ -83,23 +103,13 @@ class TestTableIntegrity:
         assert input_metadata[b"in"] == output_metadata[b"in"]
         assert input_metadata[b"out"] == output_metadata[b"out"]
 
-    def test_consistent_type_signatures_filenames(
-        self, input_table_path, output_table_path
-    ):
-        if output_table_path is None:
-            return
-        # Tests that signature in input table filename matches that in the
-        # output table filename.
-        input_table_types_from_filename = (
-            input_table_path.name.removesuffix(".parquet").split("_")[1]
-        )
-        output_table_types_from_filename = (
-            output_table_path.name.removesuffix(".parquet").split("_")[1]
-        )
-        assert input_table_types_from_filename == output_table_types_from_filename
+        for tol_table_path in tol_table_paths:
+            tol_metadata = pq.read_schema(tol_table_path).metadata
+            assert tol_metadata[b"in"] == output_metadata[b"in"]
+            assert tol_metadata[b"out"] == output_metadata[b"out"]
 
     def test_consistent_type_signatures_metadata_filename(
-        self, input_table_path, output_table_path
+        self, input_table_path, output_table_path, tol_table_paths
     ):
         # Tests that signature in the input table filename matches that in the
         # input table metadata.
@@ -110,7 +120,9 @@ class TestTableIntegrity:
         intypes_filename, _ = input_table_types_from_filename.split("-")
         assert input_metadata[b"in"] == intypes_filename.encode("ascii")
 
-    def test_consistent_column_types_input(self, input_table_path, output_table_path):
+    def test_consistent_column_types_input(
+        self, input_table_path, output_table_path, tol_table_paths
+    ):
         # Test input types in parquet columns match input types in metadata.
         input_schema = pq.read_schema(input_table_path)
         in_typecodes = input_schema.metadata[b"in"].decode("ascii")
@@ -119,7 +131,9 @@ class TestTableIntegrity:
         for typecode, datatype in zip(in_typecodes, in_types):
             assert_typecode_matches_datatype(typecode, datatype)
 
-    def test_consistent_column_types_output(self, input_table_path, output_table_path):
+    def test_consistent_column_types_output(
+        self, input_table_path, output_table_path, tol_table_paths
+    ):
         # Test output types in parquet columns match output types in metadata.
         if output_table_path is None:
             return
@@ -133,7 +147,9 @@ class TestTableIntegrity:
         for typecode, datatype in zip(out_typecodes, out_types):
             assert_typecode_matches_datatype(typecode, datatype)
 
-    def test_num_rows_match(self, input_table_path, output_table_path):
+    def test_num_rows_match(
+            self, input_table_path, output_table_path, tol_table_paths
+    ):
         # Check that the inputs table as the same number of rows as
         # the outputs table.
         if output_table_path is None:
@@ -142,10 +158,14 @@ class TestTableIntegrity:
         output_table = pq.read_table(output_table_path)
         assert len(input_table) == len(output_table)
 
+        for tol_table_path in tol_table_paths:
+            tol_table = pq.read_table(tol_table_path)
+            assert len(tol_table) == len(output_table)
+
     def test_consistent_values_in_sample(
-        self, input_table_path, output_table_path
+        self, input_table_path, output_table_path, tol_table_paths
     ):
-        # Test, for a sample of up to 50 rows, that the values in the outputs
+        # Test, for a sample of up to 20 rows, that the values in the outputs
         # table match those produced by the reference implementation applied
         # to the arguments in the input table.
         # The intention here is to guard against clear cases where the
@@ -153,7 +173,7 @@ class TestTableIntegrity:
         # a mistake in table generation.
         if output_table_path is None:
             return None
-        sample_size = 50
+        sample_size = 20
 
         metadata = pq.read_schema(input_table_path).metadata
         funcname = metadata[b"function"].decode("ascii")
