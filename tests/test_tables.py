@@ -116,7 +116,8 @@ class TestTableIntegrity:
         input_metadata = pq.read_schema(input_table_path).metadata
         input_table_types_from_filename = (
             input_table_path.name.removesuffix(".parquet").split("_")[1]
-        )
+        ).replace("cd", "D").replace("cf", "F").replace("_", "")
+
         intypes_filename, _ = input_table_types_from_filename.split("-")
         assert input_metadata[b"in"] == intypes_filename.encode("ascii")
 
