@@ -7,6 +7,7 @@ import os
 import polars as pl
 import pyarrow as pa
 import pyarrow.parquet as pq
+import re
 import scipy
 import subprocess
 import warnings
@@ -206,10 +207,20 @@ def _get_git_info():
         commit_hash = subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=Path(__file__).parent
         ).strip()
-        diff_index = subprocess.check_output(
-            ["git", "diff-index", "HEAD"], cwd=Path(__file__).parent
-        )
-        working_tree = b"dirty" if diff_index else b"clean"
+
+        status_check = subprocess.check_output(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=Path(__file__).parent
+        ).decode("utf-8").splitlines()
+
+        pattern = re.compile(r"^ \S{1,2} tables/")
+
+        non_table_changes = [
+            line for line in status_check
+            if not pattern.search(line)
+        ]
+        working_tree = b"dirty" if non_table_changes else b"clean"
+
     except subprocess.CalledProcessError:
         commit_hash = b""
         working_tree = b""
