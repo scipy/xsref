@@ -6,9 +6,8 @@ __all__ = ["extended_absolute_error", "extended_relative_error"]
 
 
 def _extended_absolute_error_real(actual, desired):
-    dtype = type(actual)
-    if dtype is not type(desired):
-        raise ValueError("Can only compare floats of the same type.")
+    dtype = type(desired)
+    actual = dtype(actual)
     if actual == desired or (np.isnan(actual) and np.isnan(desired)):
         return dtype(0.0)
     if np.isnan(desired) or np.isnan(actual):
@@ -57,9 +56,8 @@ def _extended_relative_error_real(actual, desired):
 
 
 def _extended_absolute_error_complex(actual, desired):
-    dtype = type(actual)
-    if dtype is not type(desired):
-        raise ValueError("Can only compare input of the same type.")
+    dtype = type(desired)
+    actual = dtype(actual)
     with warnings.catch_warnings(action="ignore"):
         return np.hypot(
             _extended_absolute_error_real(actual.real, desired.real),
@@ -67,9 +65,7 @@ def _extended_absolute_error_complex(actual, desired):
         )
 
 
-def _extended_relative_error_complex(
-        actual: np.complexfloating, desired: np.complexfloating
-) -> np.complexfloating:
+def _extended_relative_error_complex(actual, desired):
     abs_error = _extended_absolute_error_complex(actual, desired)
     finfo = np.finfo(type(actual.real))
 
@@ -93,7 +89,11 @@ def _extended_relative_error_complex(
     desired = type(actual)(desired_real, desired_imag)
 
     with warnings.catch_warnings(action="ignore"):
-        return abs_error / abs(desired)
+        try:
+            return abs_error / abs(desired)
+        except OverflowError as e:
+            # Rescale to handle overflow.
+            return (abs_error / 2) / abs(desired / 2)
 
 
 @np.vectorize
