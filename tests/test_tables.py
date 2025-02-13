@@ -161,3 +161,15 @@ class TestTableIntegrity:
         for tol_table_path in tol_table_paths:
             tol_table = pq.read_table(tol_table_path)
             assert len(tol_table) == len(output_table)
+
+    def test_working_tree_clean(
+            self, input_table_path, output_table_path, tol_table_paths
+    ):
+        output_metadata = pq.read_schema(output_table_path).metadata
+        working_tree_state = output_metadata[b"working_tree_state"].decode("ascii")
+        assert working_tree_state == "clean"
+
+        for tol_table_path in tol_table_paths:
+            tol_metadata = pq.read_schema(tol_table_path).metadata
+            working_tree_state = tol_metadata[b"working_tree_state"].decode("ascii")
+            assert working_tree_state == "clean"
