@@ -87,13 +87,10 @@ def _extended_relative_error_complex(actual, desired):
         desired_imag = 1.0
 
     desired = type(actual)(desired_real, desired_imag)
-
-    with warnings.catch_warnings(action="ignore"):
-        try:
-            return abs_error / abs(desired)
-        except OverflowError as e:
-            # Rescale to handle overflow.
-            return (abs_error / 2) / abs(desired / 2)
+    if not np.isinf(desired) and np.isinf(abs(desired)):
+        # Rescale to handle overflow.
+        return (abs_error / 2) / abs(desired / 2)
+    return abs_error / abs(desired)
 
 
 @np.vectorize
