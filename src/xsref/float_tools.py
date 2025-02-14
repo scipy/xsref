@@ -87,7 +87,7 @@ def _extended_relative_error_complex(actual, desired):
         desired_imag = 1.0
 
     desired = type(actual)(desired_real, desired_imag)
-    if not np.isinf(desired) and np.isinf(abs(desired)):
+    if not np.isinf(desired) and np.isinf(np.abs(desired)):
         # Rescale to handle overflow.
         return (abs_error / 2) / abs(desired / 2)
     return abs_error / abs(desired)
