@@ -17,11 +17,9 @@ if __name__ == "__main__":
         cpp_compiler = metadata[b"cpp_compiler"].decode("ascii")
         architecture = metadata[b"architecture"].decode("ascii")
         operating_system = metadata[b"operating_system"].decode("ascii")
-        intypes = metadata[b"in"].decode("ascii")
-        outtypes = metadata[b"out"].decode("ascii")
-
+        types = inpath.name.removesuffix(".parquet").replace("In_", "")
         filename = (
-            f"Err_{intypes}_{outtypes}_"
+            f"Err_{types}_"
             f"{cpp_compiler}-{operating_system}-{architecture}.parquet"
         )
         outpath = inpath.parent / filename
