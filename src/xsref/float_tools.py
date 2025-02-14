@@ -21,7 +21,7 @@ def _extended_absolute_error_real(actual, desired):
         mantissa_bits = np.finfo(dtype).nmant
         max_float = np.finfo(dtype).max
         # max_float * 2**-(mantissa_bits + 1) = ulp(max_float)
-        ulp = 2**-(mantissa_bits + 1)
+        ulp = 2**-(mantissa_bits + 1) * max_float;
         return abs(
             (sgn * max_float - desired) + sgn * ulp
         )
@@ -30,7 +30,7 @@ def _extended_absolute_error_real(actual, desired):
         mantissa_bits = np.finfo(dtype).nmant
         max_float = np.finfo(dtype).max
         # max_float * 2**-(mantissa_bits + 1) = ulp(max_float)
-        ulp = 2**-(mantissa_bits + 1)
+        ulp = 2**-(mantissa_bits + 1) * max_float
         return abs(
             (sgn * max_float - actual) + sgn * ulp
         )
