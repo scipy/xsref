@@ -115,11 +115,12 @@ class TestTableIntegrity:
         # input table metadata.
         input_metadata = pq.read_schema(input_table_path).metadata
         input_table_types_from_filename = (
-            input_table_path.name.removesuffix(".parquet").split("_")[1]
-        ).replace("cd", "D").replace("cf", "F").replace("_", "")
+            input_table_path.name.removesuffix(".parquet")
+        ).replace("In_", "").replace("cd", "D").replace("cf", "F").replace("_", "")
 
-        intypes_filename, _ = input_table_types_from_filename.split("-")
+        intypes_filename, outtypes_filename = input_table_types_from_filename.split("-")
         assert input_metadata[b"in"] == intypes_filename.encode("ascii")
+        assert input_metadata[b"out"] == outtypes_filename.encode("ascii")
 
     def test_consistent_column_types_input(
         self, input_table_path, output_table_path, tol_table_paths
