@@ -199,6 +199,7 @@ def traced_cases_to_parquet(funcname, infiles, outdir):
             # work on case insensitive filenames.
             in_types = "_".join(in_types).replace("D", "cd").replace("F", "cf")
             out_types = "_".join(out_types).replace("D", "cd").replace("F", "cf")
+            types = f"{in_types}-{out_types}"
             pq.write_table(df,
                 outdir / f"In_{types}.parquet",
                 compression="zstd",
