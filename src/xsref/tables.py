@@ -31,14 +31,14 @@ def _process_arg(arg, typecode):
             return np.float64(arg)
         case "f":
             return np.float32(arg)
-        case "D":
-            return np.complex128(arg["real"], arg["imag"])
-        case "F":
-            return np.complex64(arg["real"], arg["imag"])
         case "i":
             return np.int32(arg)
         case "p":
             return np.int64(arg)
+        case "F":
+            return np.complex64(arg[0], arg[1])
+        case "D":
+            return np.complex128(arg[0], arg[1])
         case "_":
             raise ValueError(f"Received unhandled typecode: {typecode}")
 
@@ -87,12 +87,16 @@ def get_input_rows(table_path):
 
     results = []
     for row in table.iter_rows():
-        results.append(
-            tuple(
-                _process_arg(x, typecode)
-                for x, typecode in zip(row, input_types)
-            )
-        )
+        i = 0
+        processed_row = []
+        for typecode in input_types:
+            if typecode in ["F", "D"]:
+                processed_row.append(_process_arg([row[i], row[i+1]], typecode))
+                i += 2
+            else:
+                processed_row.append(_process_arg(row[i], typecode))
+                i += 1
+        results.append(tuple(processed_row))
     return results
 
 
@@ -123,14 +127,16 @@ def get_output_rows(table_path):
 
     results = []
     for row in table.iter_rows():
-        # Exclude final "fallback" column.
-        row = row[:-1]
-        results.append(
-            tuple(
-                _process_arg(x, typecode)
-                for x, typecode in zip(row, output_types)
-            )
-        )
+        i = 0
+        processed_row = []
+        for typecode in input_types:
+            if typecode in ["F", "D"]:
+                processed_row.append(_process_arg([row[i], row[i+1]], typecode))
+                i += 2
+            else:
+                processed_row.append(_process_arg(row[i], typecode))
+                i += 1
+        results.append(tuple(processed_row))
     return results
 
 
@@ -180,15 +186,19 @@ def _evaluate(func, logpath, ertol, lock, args):
                             + [f"ref_out{i}" for i in range(len(ref_results))]
                             + [f"scipy_out{i}" for i in range(len(scipy_results))]
                         )
-                with open(logpath, 'a', newline='') as csvfile:
-                    csv.writer(csvfile, dialect="unix").writerow(
-                        args + ref_results + scipy_results
-                    )
-    row = [
-        val if not np.issubdtype(val, np.complexfloating)
-        else {"real": val.real, "imag": val.imag}
-        for val in ref_results
-    ] + [fallback]
+                    with open(logpath, 'a', newline='') as csvfile:
+                        csv.writer(csvfile, dialect="unix").writerow(
+                            args + ref_results + scipy_results
+                        )
+
+    row = []
+    for val in ref_results:
+        if np.issubdtype(val, np.complexfloating):
+            row.extend([val.real, val.imag])
+        else:
+            row.append(val)
+    row.append(fallback)
+
     return row
 
 _shared_lock = Lock()
@@ -225,21 +235,6 @@ def _get_git_info():
         commit_hash = b""
         working_tree = b""
     return commit_hash, working_tree
-
-
-def numpy_typecode_to_polars_type(typecode):
-    mapping = {
-        "d": pl.Float64,
-        "f": pl.Float32,
-        "p": pl.Int64,
-        "i": pl.Int64,
-        "D": pl.Struct({"real": pl.Float64, "imag": pl.Float64}),
-        "F": pl.Struct({"real": pl.Float32, "imag": pl.Float32}),
-    }
-    data_type = mapping.get(typecode)
-    if data_type is None:
-        raise ValueError(f"Received unsupported typecode, {typecode}")
-    return data_type
 
 
 def compute_output_table(inpath, *, logpath=None, ertol=1e-2, nworkers=1):
@@ -323,13 +318,17 @@ def compute_output_table(inpath, *, logpath=None, ertol=1e-2, nworkers=1):
         if not results:
             return None
 
-    schema = {
-        f"out{i}": numpy_typecode_to_polars_type(typecode)
-        for i, typecode in enumerate(metadata[b"out"].decode("ascii"))
-    }
-    schema["fallback"] = pl.Boolean
+    columns = []
+    for i, typecode in enumerate(metadata[b"out"].decode("ascii")):
+        if typecode in ["F", "D"]:
+            columns.extend([f"out{i}_real", f"out{i}_imag"])
+        else:
+            columns.append(f"out{i}")
+    columns.append("fallback")
 
-    table = pl.DataFrame(results, orient="row", schema=schema).to_arrow()
+    table = pl.DataFrame(results, orient="row")
+    table.columns = columns
+    table = table.to_arrow()
     table = table.replace_schema_metadata(metadata)
     return table
 
