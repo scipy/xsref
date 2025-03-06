@@ -167,25 +167,35 @@ def traced_cases_to_parquet(funcname, infiles, outdir):
                 in_types, out_types = types.split("->")
                 if len(args) != len(in_types):
                     continue
-                try:
-                    args = [
-                        str(dtype_map[typecode](arg)) for typecode, arg in zip(in_types, args)
-                    ]
-                except KeyError:
-                    continue
-                new_rows[types].append(args)
+
+                new_row = []
+                for typecode, arg in zip(in_types, args):
+                    try:
+                        arg = dtype_map[typecode](arg)
+                    except KeyError:
+                        # Test cases with other typecodes (long double for instance)
+                        # are just skipped.
+                        break
+                    if typecode in ["F", "D"]:
+                        new_row.extend([arg.real, arg.imag])
+                    else:
+                        new_row.append(arg)
+                else:
+                    new_rows[types].append(new_row)
 
         for types, rows in new_rows.items():
             in_types, _ = types.split("->")
-            dtypes = [dtype_map[typecode] for typecode in in_types]
             df = pl.DataFrame(rows, orient="row").unique()
-            df.columns = [f"in{i}" for i in range(len(df.columns))]
-            df = df.with_columns(
-                *(
-                    _parse_column(df[colname], dtype).alias(f"in{i}")
-                    for i, (colname, dtype) in enumerate(zip(df.columns, dtypes))
-                )
-            )
+            columns = []
+
+            for i, typecode in enumerate(in_types):
+                if typecode in ["F", "D"]:
+                    columns.extend([f"in{i}_real", f"in{i}_imag"])
+                else:
+                    columns.append(f"in{i}")
+
+            df.columns = columns
+
             df = df.to_arrow()
             types = types.replace("->", "-")
             in_types, out_types = types.split("-")
