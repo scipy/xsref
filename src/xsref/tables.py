@@ -51,9 +51,9 @@ def get_in_out_types(table_path):
     table_path : str
         Path to a parquet table with rows corresponding to arguments to
         a special function and in format used by xsref. float32, float64, int32
-        and int64 inputs have corresponding types in parquet. Complex inputs
-        are stored as structs {"real": x, "imag": y} where x and y have the
-        corresponding base type.
+        and int64 inputs have corresponding types in parquet. Because parquet
+        does not support complex types, complex inputs are stored in two columns
+        each of the corresponding base type.
 
     Returns
     -------
@@ -74,8 +74,7 @@ def get_input_rows(table_path):
         Path to a parquet table with rows corresponding to arguments to
         a special function and in format used by xsref. float32, float64, int32
         and int64 inputs have corresponding types in parquet. Complex inputs
-        are stored as structs {"real": x, "imag": y} where x and y have the
-        corresponding base type.
+        are stored in two columns of the corresponding base type.
         
     Returns
     -------
@@ -109,13 +108,13 @@ def get_output_rows(table_path):
         Path to a parquet table with rows corresponding to outputs of a a
         special function and in format used by xsref. float32, float64, int32
         and int64 inputs have corresponding types in parquet. Complex outputs
-        are stored as structs {"real": x, "imag": y} where x and y have the
-        corresponding base type. The final column is named ``"fallback"`` and
-        is of type ``bool``. ``"fallback"`` holds value True if the reference
-        value was taken from SciPy or xsf itself, and is thus not an
-        independent reference value.  This is done on a temporary basis to
-        guard against regressions if a reference implementation has not yet
-        been implemented for a function in a given parameter regime.
+        are stored in two columns of the corresponding base type. The final
+        column is named ``"fallback"`` and is of type ``bool``. ``"fallback"``
+        holds value True if the reference value was taken from SciPy or xsf
+        itself, and is thus not an independent reference value.  This is done
+        on a temporary basis to guard against regressions if a reference
+        implementation has not yet been implemented for a function in a given
+        parameter regime.
         
     Returns
     -------
@@ -246,12 +245,11 @@ def compute_output_table(inpath, *, logpath=None, ertol=1e-2, nworkers=1):
         Path to a parquet file of inputs of the kind accepted by xsref.  It has
         columns for each input argument, of type ``f32``, ``f64``, ``int32``,
         ``int64`` for these respective types, with ``complex64`` and
-        ``complex128`` arguments expressed as ``struct{"real": f32, "imag":
-        f32}`` and ``struct{"real": f64, "imag": f64}`` respectively. The
-        metadata contains the input types as an ascii encoded string of NumPy
-        dtype codes in the field ``b"in"``, the output types as a similar
-        string in the field ``b"out"``, and the associated `xsref` reference
-        function in the ascii encoded field ``b"function"``
+        ``complex128`` arguments expressed in two columns of type ``f32`` or
+        ``f64`` respectively. The metadata contains the input types as an ascii
+        encoded string of NumPy dtype codes in the field ``b"in"``, the output
+        types as a similar string in the field ``b"out"``, and the associated
+        `xsref` reference function in the ascii encoded field ``b"function"``
 
     logpath : Optional[str]
         Path to where to store log file for this run. If None, no log is
