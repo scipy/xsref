@@ -13,6 +13,8 @@ from pathlib import Path
 
 import xsref
 
+from xsref.tables import _create_table_schema
+
 
 __all__ = ["TracedUfunc"]
 
@@ -155,6 +157,7 @@ def traced_cases_to_parquet(funcname, infiles, outdir):
         "p": np.int64,
         "i": np.int32,
     }
+
     if isinstance(infiles, str):
         infiles = [infiles]
 
@@ -185,18 +188,11 @@ def traced_cases_to_parquet(funcname, infiles, outdir):
 
         for types, rows in new_rows.items():
             in_types, _ = types.split("->")
-            df = pl.DataFrame(rows, orient="row").unique()
-            columns = []
+            schema = _create_table_schema(in_types, "in")
 
-            for i, typecode in enumerate(in_types):
-                if typecode in ["F", "D"]:
-                    columns.extend([f"in{i}_real", f"in{i}_imag"])
-                else:
-                    columns.append(f"in{i}")
-
-            df.columns = columns
-
+            df = pl.DataFrame(rows, orient="row", schema=schema).unique()
             df = df.to_arrow()
+
             types = types.replace("->", "-")
             in_types, out_types = types.split("-")
             metadata = {

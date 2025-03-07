@@ -128,7 +128,7 @@ def get_output_rows(table_path):
     for row in table.iter_rows():
         i = 0
         processed_row = []
-        for typecode in input_types:
+        for typecode in output_types:
             if typecode in ["F", "D"]:
                 processed_row.append(_process_arg([row[i], row[i+1]], typecode))
                 i += 2
@@ -236,6 +236,29 @@ def _get_git_info():
     return commit_hash, working_tree
 
 
+_np_to_pl_type_map = {
+    "f": pl.Float32,
+    "d": pl.Float64,
+    # complex values (F and D) are stored in two columns of a real floating
+    # point type.
+    "F": pl.Float32,
+    "D": pl.Float64,
+    "p": pl.Int64,
+    "i": pl.Int32,
+}
+
+
+def _create_table_schema(typecodes, prefix):
+    schema = {}
+    for i, typecode in enumerate(typecodes):
+        if typecode in ["F", "D"]:
+            schema[f"{prefix}{i}_real"] = _np_to_pl_type_map[typecode]
+            schema[f"{prefix}{i}_imag"] = _np_to_pl_type_map[typecode]
+        else:
+            schema[f"{prefix}{i}"] = _np_to_pl_type_map[typecode]
+    return schema
+
+
 def compute_output_table(inpath, *, logpath=None, ertol=1e-2, nworkers=1):
     """Compute arrow table of outputs associated to parquet file with inputs
 
@@ -316,18 +339,13 @@ def compute_output_table(inpath, *, logpath=None, ertol=1e-2, nworkers=1):
         if not results:
             return None
 
-    columns = []
-    for i, typecode in enumerate(metadata[b"out"].decode("ascii")):
-        if typecode in ["F", "D"]:
-            columns.extend([f"out{i}_real", f"out{i}_imag"])
-        else:
-            columns.append(f"out{i}")
-    columns.append("fallback")
+    schema = _create_table_schema(metadata[b"out"].decode("ascii"), "out")
+    schema["fallback"] = pl.Boolean()
 
-    table = pl.DataFrame(results, orient="row")
-    table.columns = columns
+    table = pl.DataFrame(results, orient="row", schema=schema)
     table = table.to_arrow()
     table = table.replace_schema_metadata(metadata)
+
     return table
 
 
