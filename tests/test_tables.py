@@ -41,14 +41,6 @@ def assert_typecode_matches_datatype(typecode, datatype):
             assert datatype == pa.float64()
         case "f":
             assert datatype == pa.float32()
-        case "D":
-            assert datatype == pa.struct(
-                [("real", pa.float64()), ("imag", pa.float64())]
-            )
-        case "F":
-            assert datatype == pa.struct(
-                [("real", pa.float32()), ("imag", pa.float32())]
-            )
         case "i":
             assert datatype == pa.int32()
         case "p":
@@ -129,25 +121,43 @@ class TestTableIntegrity:
         input_schema = pq.read_schema(input_table_path)
         in_typecodes = input_schema.metadata[b"in"].decode("ascii")
         in_types = input_schema.types
-        assert len(in_typecodes) == len(in_types)
-        for typecode, datatype in zip(in_typecodes, in_types):
-            assert_typecode_matches_datatype(typecode, datatype)
+
+        i = 0
+        for typecode in in_typecodes:
+            if typecode == "F":
+                assert in_types[i] == pa.float32()
+                assert in_types[i+1] == pa.float32()
+                i += 2
+            elif typecode == "D":
+                assert in_types[i] == pa.float64()
+                assert in_types[i+1] == pa.float64()
+                i += 2
+            else:
+                assert_typecode_matches_datatype(typecode, in_types[i])
+                i += 1
 
     def test_consistent_column_types_output(
         self, input_table_path, output_table_path, tol_table_paths
     ):
-        # Test output types in parquet columns match output types in metadata.
-        if output_table_path is None:
-            return
+        # Test input types in parquet columns match input types in metadata.
         output_schema = pq.read_schema(output_table_path)
         out_typecodes = output_schema.metadata[b"out"].decode("ascii")
-        # Last column of output table is bool signifying whether reference
-        # value computed with an independent reference or not.
-        out_types = output_schema.types[:-1]
+        out_types = output_schema.types
 
-        assert len(out_typecodes) == len(out_types)
-        for typecode, datatype in zip(out_typecodes, out_types):
-            assert_typecode_matches_datatype(typecode, datatype)
+        i = 0
+        for typecode in out_typecodes:
+            if typecode == "F":
+                assert out_types[i] == pa.float32()
+                assert out_types[i+1] == pa.float32()
+                i += 2
+            elif typecode == "D":
+                assert out_types[i] == pa.float64()
+                assert out_types[i+1] == pa.float64()
+                i += 2
+            else:
+                assert_typecode_matches_datatype(typecode, out_types[i])
+                i += 1
+
 
     def test_num_rows_match(
             self, input_table_path, output_table_path, tol_table_paths
