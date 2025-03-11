@@ -380,7 +380,7 @@ def compute_initial_err_table(inpath):
     reference_output_rows = np.asarray(get_output_rows(outpath)).T
     observed_output = np.asarray(scipy_func(*zip(*input_rows)))
 
-    err = extended_relative_error(reference_output_rows, observed_output)
+    err = extended_relative_error(observed_output, reference_output_rows)
 
     tol_table = pa.table(
         {f"err{i}": pa.array(err[i, :]) for i in range(err.shape[0])}
