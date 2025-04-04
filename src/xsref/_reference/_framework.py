@@ -1,4 +1,5 @@
 import functools
+import inspect
 import math
 import numpy as np
 import scipy
@@ -226,5 +227,6 @@ class reference_implementation:
         wrapper.__annotations__ =  typing.get_type_hints(func)
         setattr(wrapper, "_scipy_func", self.scipy_func)
         setattr(wrapper, "_mp", func)
+        setattr(wrapper, "_arg_names", inspect.getfullargspec(func).args)
         setattr(wrapper, "__xsref", None)
         return wrapper
