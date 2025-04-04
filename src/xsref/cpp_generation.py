@@ -399,6 +399,8 @@ if __name__ == "__main__":
             if hasattr(xsref, func_name):
                 arg_names = getattr(xsref, func_name)._arg_names
             func_arg_names[func_name] = arg_names
+        else:
+            func_types[func_name].append([in_types, out_types])
 
     for func_name, types in func_types.items():
         arg_names = func_arg_names[func_name]
