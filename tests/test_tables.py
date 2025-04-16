@@ -7,6 +7,7 @@ import pyarrow.parquet as pq
 import pytest
 import warnings
 
+from functools import reduce
 from numpy.testing import assert_allclose
 from pathlib import Path
 
@@ -30,7 +31,7 @@ def get_tables_paths():
             "In_", "Err_"
         ).removesuffix(".parquet")
         tol_pattern = rf"{tol_pattern}*.parquet"
-        tol_table_paths = list(input_table_path.glob(tol_pattern))
+        tol_table_paths = list(input_table_path.parent.glob(tol_pattern))
         output.append((input_table_path, output_table_path, tol_table_paths))
     return output
 
@@ -64,8 +65,6 @@ class TestTableIntegrity:
         # Test that the Sha256 checksum for the input table stored in the
         # output table's metadata matches the actual Sha256 checksum of the
         # input table.
-        if output_table_path is None:
-            return
         input_table_checksum_expected = _calculate_checksum(input_table_path)
         output_metadata = pq.read_schema(output_table_path).metadata
         input_table_checksum_observed = (
@@ -74,13 +73,42 @@ class TestTableIntegrity:
         assert input_table_checksum_observed == input_table_checksum_expected
 
         output_table_checksum_expected = _calculate_checksum(output_table_path)
+
         for tol_table_path in tol_table_paths:
+            if "_other.parquet" in tol_table_path.name:
+                # Default tol tables not generated in the same way, so
+                # consistency tested separately.
+                continue
             tol_metadata = pq.read_schema(tol_table_path).metadata
             input_table_checksum_observed = (
                 tol_metadata[b"input_checksum"].decode("ascii")
             )
             output_table_checksum_observed = (
                 tol_metadata[b"output_checksum"].decode("ascii")
+            )
+            assert input_table_checksum_observed == input_table_checksum_expected
+            assert output_table_checksum_observed == output_table_checksum_expected
+
+    def test_default_tol_table(
+            self, input_table_path, output_table_path, tol_table_paths
+    ):
+        tol_tables = []
+        other_tol_table = None
+        for tol_table_path in tol_table_paths:
+            if "_other.parquet" not in tol_table_path.name:
+                tol_tables.append(pl.read_parquet(tol_table_path).to_numpy())
+            else:
+                other_tol_table = pl.read_parquet(tol_table_path).to_numpy()
+        max_error = reduce(lambda x, y: np.maximum(x, y), tol_tables)
+        max_error = np.maximum(max_error, np.finfo(other_tol_table.dtype).eps)
+        # The default table should be looser than all specific tables, but not
+        # too loose. Need special handling for infinite tolerances.
+        with np.errstate(over="ignore"):
+            assert np.all(
+                ((other_tol_table > max_error)
+                 & (other_tol_table < 16 * max_error))
+                | (np.isinf(other_tol_table) & np.isinf(max_error))
+                | (np.isinf(other_tol_table) & np.isinf(16 * max_error))
             )
 
     def test_consistent_type_signatures_metadata(
