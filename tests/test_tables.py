@@ -65,8 +65,6 @@ class TestTableIntegrity:
         # Test that the Sha256 checksum for the input table stored in the
         # output table's metadata matches the actual Sha256 checksum of the
         # input table.
-        if output_table_path is None:
-            return
         input_table_checksum_expected = _calculate_checksum(input_table_path)
         output_metadata = pq.read_schema(output_table_path).metadata
         input_table_checksum_observed = (
