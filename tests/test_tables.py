@@ -103,12 +103,13 @@ class TestTableIntegrity:
         max_error = np.maximum(max_error, np.finfo(other_tol_table.dtype).eps)
         # The default table should be looser than all specific tables, but not
         # too loose. Need special handling for infinite tolerances.
-        assert np.all(
-            ((other_tol_table > max_error)
-             & (other_tol_table < 16 * max_error))
-            | (np.isinf(other_tol_table) & np.isinf(max_error))
-            | (np.isinf(other_tol_table) & np.isinf(16 * max_error))
-        )
+        with np.errstate(over="ignore"):
+            assert np.all(
+                ((other_tol_table > max_error)
+                 & (other_tol_table < 16 * max_error))
+                | (np.isinf(other_tol_table) & np.isinf(max_error))
+                | (np.isinf(other_tol_table) & np.isinf(16 * max_error))
+            )
 
     def test_consistent_type_signatures_metadata(
         self, input_table_path, output_table_path, tol_table_paths
