@@ -60,6 +60,3 @@ if __name__ == "__main__":
         pq.write_table(
             other_err_table, outpath, compression="zstd", compression_level=22
         )
-        
-
-            
