@@ -7,6 +7,7 @@ import pyarrow.parquet as pq
 import pytest
 import warnings
 
+from functools import reduce
 from numpy.testing import assert_allclose
 from pathlib import Path
 
@@ -89,6 +90,27 @@ class TestTableIntegrity:
             )
             assert input_table_checksum_observed == input_table_checksum_expected
             assert output_table_checksum_observed == output_table_checksum_expected
+
+    def test_default_tol_table(
+            self, input_table_path, output_table_path, tol_table_paths
+    ):
+        tol_tables = []
+        other_tol_table = None
+        for tol_table_path in tol_table_paths:
+            if "_other.parquet" not in tol_table_path.name:
+                tol_tables.append(pl.read_parquet(tol_table_path).to_numpy())
+            else:
+                other_tol_table = pl.read_parquet(tol_table_path).to_numpy()
+        max_error = reduce(lambda x, y: np.maximum(x, y), tol_tables)
+        max_error = np.maximum(max_error, np.finfo(other_tol_table.dtype).eps)
+        # The default table should be looser than all specific tables, but not
+        # too loose. Need special handling for infinite tolerances.
+        assert np.all(
+            ((other_tol_table > max_error)
+             & (other_tol_table < 16 * max_error))
+            | (np.isinf(other_tol_table) & np.isinf(max_error))
+            | (np.isinf(other_tol_table) & np.isinf(16 * max_error))
+        )
 
     def test_consistent_type_signatures_metadata(
         self, input_table_path, output_table_path, tol_table_paths
