@@ -30,7 +30,7 @@ def get_tables_paths():
             "In_", "Err_"
         ).removesuffix(".parquet")
         tol_pattern = rf"{tol_pattern}*.parquet"
-        tol_table_paths = list(input_table_path.glob(tol_pattern))
+        tol_table_paths = list(input_table_path.parent.glob(tol_pattern))
         output.append((input_table_path, output_table_path, tol_table_paths))
     return output
 
@@ -74,7 +74,12 @@ class TestTableIntegrity:
         assert input_table_checksum_observed == input_table_checksum_expected
 
         output_table_checksum_expected = _calculate_checksum(output_table_path)
+
         for tol_table_path in tol_table_paths:
+            if "_other.parquet" in tol_table_path.name:
+                # Default tol tables not generated in the same way, so
+                # consistency tested separately.
+                continue
             tol_metadata = pq.read_schema(tol_table_path).metadata
             input_table_checksum_observed = (
                 tol_metadata[b"input_checksum"].decode("ascii")
@@ -82,6 +87,8 @@ class TestTableIntegrity:
             output_table_checksum_observed = (
                 tol_metadata[b"output_checksum"].decode("ascii")
             )
+            assert input_table_checksum_observed == input_table_checksum_expected
+            assert output_table_checksum_observed == output_table_checksum_expected
 
     def test_consistent_type_signatures_metadata(
         self, input_table_path, output_table_path, tol_table_paths
