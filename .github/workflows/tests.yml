@@ -9,13 +9,11 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Setup Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+      - uses: prefix-dev/setup-pixi@92815284c57faa15cd896c4d5cfb2d59f32dc43d # v0.8.3
         with:
-          python-version: '3.12'
-
-      - name: Install xsref and dependencies
-        run: pip install .[test]
+          pixi-version: v0.70.1
+          cache: true
+          environments: tests
 
       - name: Run tests
-        run: pytest
+        run: pixi run tests

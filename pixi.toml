@@ -1,0 +1,44 @@
+[workspace]
+channels = ["https://prefix.dev/conda-forge"]
+platforms = ["linux-64", "osx-arm64", "win-64"]
+preview = ["pixi-build"]
+requires-pixi = ">=0.68.0"
+
+### xsref package definition ###
+
+[package.build.backend]
+name = "pixi-build-python"
+version = "*"
+
+[package.build.config]
+ignore-pypi-mapping = false
+
+[package.run-dependencies]
+# `pyarrow-core` is included via the PyPI mapping, but we need
+# Parquet file format support which is not included:
+# https://prefix-dev.github.io/parselmouth/?q=pyarrow&dir=pypi
+pyarrow = "*"
+
+### workspace environment definitions ###
+
+[environments]
+default = { features = ["default"], solve-group = "default" }
+tests = { features = ["tests"], solve-group = "default" }
+
+### default feature definition ###
+
+[dev]
+# this pulls in xsref's host and run dependencies
+xsref.path = "."
+
+[dependencies]
+xsref.path = "."
+
+### non-default feature definitions ###
+
+[feature.tests.dependencies]
+pytest = "*"
+
+[feature.tests.tasks.tests]
+description = "Run tests"
+cmd = "pytest"
