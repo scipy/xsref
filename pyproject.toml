@@ -11,12 +11,12 @@ maintainers = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-	     "mpmath==1.3.0",
+	     "mpmath",
 	     "numpy",
 	     "packaging",
 	     "polars",
 	     "pyarrow",
-	     "scipy==1.15.2",
+	     "scipy"
 ]
 readme = "README.md"
 
