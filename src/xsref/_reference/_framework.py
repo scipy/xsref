@@ -17,13 +17,6 @@ from typing import overload
 __all__ = ["reference_implementation", "XSRefFallbackWarning"]
 
 
-if version.parse(scipy.__version__) >= version.parse("1.16"):
-    raise RuntimeError(
-        f"SciPy {scipy.__version__} is not an independent reference. SciPy"
-        " depends on xsf as of version 1.16."
-    )
-
-
 def get_signature_from_type_hints(type_hints):
     input_types = []
     for key, val in type_hints.items():

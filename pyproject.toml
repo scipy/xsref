@@ -16,7 +16,7 @@ dependencies = [
 	     "packaging",
 	     "polars",
 	     "pyarrow",
-	     "scipy==1.15.2",
+	     "scipy"
 ]
 readme = "README.md"
 
