@@ -1,6 +1,7 @@
 import argparse
 import csv
 import hashlib
+import importlib.resources
 import mpmath
 import numpy as np
 import os
@@ -23,6 +24,10 @@ import xsref._reference._functions as xsref_funcs
 
 from xsref.float_tools import extended_relative_error
 from xsref._reference._framework import XSRefFallbackWarning
+
+
+def get_tables_path():
+    return importlib.resources.files('xsref').joinpath('tables')
 
 
 def _process_arg(arg, typecode):
