@@ -1,25 +1,18 @@
 import numpy as np
 import os
 import polars as pl
-import pprint
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-import warnings
 
 from functools import reduce
-from numpy.testing import assert_allclose
-from pathlib import Path
 
-import xsref
-
-from xsref.float_tools import extended_relative_error
-from xsref.tables import _calculate_checksum, get_input_rows, get_output_rows
-from xsref._reference._framework import XSRefFallbackWarning
+import xsref.tables
+from xsref.tables import _calculate_checksum
 
 
 def get_tables_paths():
-    root_tables_path = Path(__file__).parents[1] / "tables"
+    root_tables_path = xsref.tables.get_tables_path()
     output = []
     for input_table_path in root_tables_path.glob("**/In_*.parquet"):
         output_table_path = (
