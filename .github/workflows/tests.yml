@@ -5,13 +5,17 @@ on: [ push, pull_request ]
 jobs:
   xsref_tests:
     name: xsref table consistency tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - uses: prefix-dev/setup-pixi@92815284c57faa15cd896c4d5cfb2d59f32dc43d # v0.8.3
         with:
-          pixi-version: v0.70.1
+          pixi-version: v0.74.0
           cache: true
           environments: tests
 
