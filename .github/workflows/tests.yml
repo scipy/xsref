@@ -35,7 +35,9 @@ jobs:
       - name: Set PIXI_CACHE_DIR (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: "'PIXI_CACHE_DIR=D:\\pixi_cache' >> $env:GITHUB_ENV"
+        run: |
+          'PIXI_CACHE_DIR=D:\pixi_cache' >> $env:GITHUB_ENV
+          'UV_CACHE_DIR=D:\uv_cache' >> $env:GITHUB_ENV
 
       - uses: prefix-dev/setup-pixi@92815284c57faa15cd896c4d5cfb2d59f32dc43d # v0.8.3
         with:
