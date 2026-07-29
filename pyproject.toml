@@ -3,7 +3,7 @@ requires = ["uv_build"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-source-include = ["tables/**/*"]
+purelib = "src/xsref/tables"
 
 [project]
 name = "xsref"
