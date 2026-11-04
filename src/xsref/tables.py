@@ -48,6 +48,19 @@ def _process_arg(arg, typecode):
             raise ValueError(f"Received unhandled typecode: {typecode}")
 
 
+def _encode_dtype_loop(dtype_loop):
+    """Encode a NumPy dtype loop for use in table filenames."""
+    inputs, outputs = dtype_loop.split("->")
+
+    def encode(types):
+        return "_".join(
+            typecode.replace("F", "cf").replace("D", "cd")
+            for typecode in types
+        )
+
+    return f"{encode(inputs)}-{encode(outputs)}"
+
+
 def get_in_out_types(table_path):
     """Get input types of function corresponding to table_path
 
@@ -142,6 +155,62 @@ def get_output_rows(table_path):
                 i += 1
         results.append(tuple(processed_row))
     return results
+
+
+def get_vals_from_table(
+        function, table_type, *, family="scipy_special_tests", dtype_loop, platform
+):
+    """Load a reference table for a given function and NumPy dtype loop.
+
+    Parameters
+    ----------
+    function : str
+        Function name, e.g. 'digamm
+        NumPy-style dtype loop, e.g. 'da'.
+    table_type : {'in', 'out', 'err'}
+        Type of table to load.
+    family : str, optional
+        Table family. Default is 'scipy_special_tests'.
+    dtype_loop : str->d' or 'D->D'.
+    platform : str
+        Platform identifier, e.g. 'gcc-linux-x86_64' or 'other'.
+        Only used for error tables.
+
+    Returns
+    -------
+    numpy.ndarray or tuple of numpy.ndarray
+        Arrays containing the values of each logical column, with complex
+        values reconstructed. A single array is returned when the table
+        has only one logical column.
+    """
+    if table_type not in ("in", "out", "err"):
+        raise ValueError(f"Unknown table type: {table_type!r}")
+
+    loop = _encode_dtype_loop(dtype_loop)
+
+    name = f"{table_type.capitalize()}_{loop}"
+    if table_type == "err":
+        name += f"_{platform}"
+
+    path = get_tables_path() / family / function / f"{name}.parquet"
+
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"No {table_type!r} table found for {function!r} with "
+            f"dtype loop {dtype_loop!r}.\n"
+            f"Expected file: {path}"
+        )
+
+    if table_type == "in":
+        rows = get_input_rows(path)
+    elif table_type == "out":
+        rows = get_output_rows(path)
+    else:
+        rows = pl.read_parquet(path).rows()
+    result = tuple(np.asarray(col) for col in zip(*rows))
+    if len(result) == 1:
+        result = result[0]
+    return resultit
 
 
 def init(shared_lock):
