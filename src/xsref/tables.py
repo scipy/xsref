@@ -158,6 +158,19 @@ def _get_vals_from_path(path):
     return result
 
 
+def _read_table(path):
+    """Read logical values and metadata from a Parquet table."""
+    values = _get_vals_from_path(path)
+
+    metadata = pq.read_schema(path).metadata or {}
+    metadata = {
+        key.decode("ascii"): value.decode("ascii")
+        for key, value in metadata.items()
+    }
+
+    return {"values": values, "metadata": metadata}
+
+
 def _process_arg(arg, typecode):
     match typecode:
         case "d":
@@ -341,14 +354,7 @@ def get_vals_from_table(
             function, table_type, family=family,
             dtype_loop=dtype_loop, platform=platform
         )
-        values = _get_vals_from_path(path)
-        metadata = pq.read_schema(path).metadata or {}
-        metadata = {
-            key.decode("ascii"): value.decode("ascii")
-            for key, value in metadata.items()
-        }
-
-    return {"values": values, "metadata": metadata}
+        return _read_table(path)
 
 
 def table_to_string(table):
