@@ -18,6 +18,7 @@ from concurrent.futures import ProcessPoolExecutor
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import partial
+from html import escape
 from io import StringIO
 from multiprocessing import Lock
 from multiprocessing import Manager
@@ -202,22 +203,6 @@ def _encode_dtype_loop(dtype_loop):
     return f"{encode(inputs)}-{encode(outputs)}"
 
 
-def _parquet_as_text(data):
-    """Render Parquet data as CSV with metadata for diffing."""
-    metadata = pq.read_schema(BytesIO(data)).metadata or {}
-
-    lines = ["# Metadata\n"]
-    for key, value in sorted(metadata.items()):
-        key = key.decode("utf-8", errors="backslashreplace")
-        value = value.decode("utf-8", errors="backslashreplace")
-        lines.append(f"# {key}: {value!r}\n")
-
-    lines.append("# Data (CSV)\n")
-    csv = pl.read_parquet(BytesIO(data)).write_csv()
-    lines.extend(csv.splitlines(keepends=True))
-
-    return lines
-
 
 def get_in_out_types(table_path):
     """Get input types of function corresponding to table_path
@@ -383,8 +368,8 @@ def table_to_string(table):
     columns = values if isinstance(values, tuple) else (values,)
 
     writer = csv.writer(buffer, lineterminator="\n")
-    writer.writerow([f"value{i}" for i in range(len(columns))])
-    writer.writerows(zip(*columns))
+    writer.writerow(["row", *(f"value{i}" for i in range(len(columns)))])
+    writer.writerows((i, *row) for i, row in enumerate(zip(*columns)))
 
     return buffer.getvalue()
 
@@ -392,7 +377,7 @@ def table_to_string(table):
 from difflib import unified_diff
 
 
-def get_table_diffs(revision1=None, revision2="main"):
+def get_table_diffs(revision1="main", revision2=None):
     """Compare reference tables between two Git revisions.
 
     Parameters
@@ -511,6 +496,104 @@ def get_table_diffs(revision1=None, revision2="main"):
             diffs[table_name] = diff
 
     return diffs
+
+
+def format_table_diffs(
+    diffs, *, revision1="main", revision2=None, max_bytes=None
+):
+    """Format reference table diffs as a Markdown report.
+
+    Parameters
+    ----------
+    diffs : dict of str to str
+        Dictionary returned by `get_table_diffs`.
+    revision1, revision2 : str or None, optional
+        Revisions being compared. None denotes the working tree.
+        Defaults are 'main' and None, respectively.
+    max_bytes : int, optional
+        Maximum report size in bytes. If exceeded, omit some detailed
+        diffs while retaining the summary of all changed tables.
+
+    Returns
+    -------
+    str
+        GitHub-flavored Markdown report containing a summary table
+        and collapsible unified diffs.
+    """
+    def label(revision):
+        return "working tree" if revision is None else f"`{revision}`"
+
+    report = (
+        "# Reference Table Changes\n\n"
+        f"Comparing {label(revision1)} → {label(revision2)}\n\n"
+        f"**{len(diffs)} tables changed.**\n\n"
+    )
+
+    if not diffs:
+        return report + "No reference table changes detected.\n"
+
+    report += (
+        "## Summary\n\n"
+        "| Table | Values −/+ | Metadata −/+ |\n"
+        "| --- | ---: | ---: |\n"
+    )
+
+    for path, diff in sorted(diffs.items()):
+        counts = {
+            "values": [0, 0],
+            "metadata": [0, 0],
+        }
+
+        for line in diff.splitlines():
+            if line.startswith(("--- ", "+++ ")):
+                continue
+
+            if line.startswith(("-", "+")):
+                kind = (
+                    "metadata" if line[1:].startswith("# ")
+                    else "values"
+                )
+                index = 0 if line.startswith("-") else 1
+                counts[kind][index] += 1
+
+        values = counts["values"]
+        metadata = counts["metadata"]
+        name = escape(path).replace("|", "&#124;")
+
+        report += (
+            f"| <code>{name}</code> "
+            f"| {values[0]}/{values[1]} "
+            f"| {metadata[0]}/{metadata[1]} |\n"
+        )
+
+    report += "\n## Detailed Diffs\n\n"
+
+    omitted = 0
+
+    for path, diff in sorted(diffs.items()):
+        detail = (
+            "<details>\n"
+            f"<summary><code>{escape(path)}</code></summary>\n\n"
+            f"```diff\n{diff.rstrip()}\n```\n\n"
+            "</details>\n\n"
+        )
+
+        if (
+            max_bytes is not None
+            and len((report + detail).encode("utf-8")) > max_bytes - 512
+        ):
+            omitted += 1
+            continue
+
+        report += detail
+
+    if omitted:
+        report += (
+            f"\n**{omitted} detailed diffs omitted due to size.** "
+            "See the complete report in the workflow artifacts.\n"
+        )
+
+    return report
 
 
 def init(shared_lock):
