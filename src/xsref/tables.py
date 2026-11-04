@@ -13,11 +13,15 @@ import scipy
 import subprocess
 import warnings
 
+
 from concurrent.futures import ProcessPoolExecutor
+from contextlib import contextmanager
+from contextvars import ContextVar
 from functools import partial
 from multiprocessing import Lock
 from multiprocessing import Manager
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 
 import xsref._reference._functions as xsref_funcs
@@ -25,9 +29,132 @@ import xsref._reference._functions as xsref_funcs
 from xsref.float_tools import extended_relative_error
 from xsref._reference._framework import XSRefFallbackWarning
 
+_table_revision = ContextVar("_table_revision", default=None)
+
+
+@contextmanager
+def _tables_at_commit(revision):
+    """Temporarily use reference tables from a Git revision."""
+    if revision is None:
+        yield
+        return
+
+    repo_root = Path(subprocess.check_output(
+        ["git", "-C", str(get_tables_path()), "rev-parse", "--show-toplevel"],
+        text=True,
+    ).strip())
+
+    commit = subprocess.check_output(
+        ["git", "-C", str(repo_root), "rev-parse", "--verify",
+         f"{revision}^{{commit}}"],
+        text=True,
+    ).strip()
+
+    with TemporaryDirectory() as tmpdir:
+        token = _table_revision.set((repo_root, commit, Path(tmpdir)))
+        try:
+            yield
+        finally:
+            _table_revision.reset(token)
+
+
+def _resolve_table_path(path):
+    """Resolve a table path against the active Git revision."""
+    state = _table_revision.get()
+
+    if state is None:
+        if not path.is_file():
+            raise FileNotFoundError(f"Table not found: {path}")
+        return path
+
+    repo_root, commit, tmpdir = state
+    relative_path = path.resolve().relative_to(repo_root)
+
+    historical_path = tmpdir / relative_path
+
+    if not historical_path.is_file():
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "show",
+             f"{commit}:{relative_path.as_posix()}"],
+            capture_output=True,
+        )
+
+        if result.returncode:
+            raise FileNotFoundError(
+                f"Table {relative_path} not found at commit {commit}."
+            )
+
+        historical_path.parent.mkdir(parents=True, exist_ok=True)
+        historical_path.write_bytes(result.stdout)
+
+    return historical_path
+
 
 def get_tables_path():
     return importlib.resources.files('xsref').joinpath('tables')
+
+
+def get_path_to_table(
+        function, table_type, *, family="scipy_special_tests", dtype_loop, platform
+):
+    """Return the path to a reference table.
+
+    Parameters
+    ----------
+    function : str
+        Function name, e.g. 'digamma'.
+    table_type : {'in', 'out', 'err'}
+        Type of table.
+    family : str, optional
+        Table family. Default is 'scipy_special_tests'.
+    dtype_loop : str
+        NumPy-style dtype loop, e.g. 'd->d' or 'D->D'.
+    platform : str
+        Platform identifier, e.g. 'gcc-linux-x86_64' or 'other'.
+        Only used for error tables.
+
+    Returns
+    -------
+    pathlib.Path
+        Path to the requested Parquet table.
+
+    Raises
+    ------
+    ValueError
+        If table_type is invalid.
+    FileNotFoundError
+        If the requested table does not exist.
+    """
+    if table_type not in ("in", "out", "err"):
+        raise ValueError(f"Unknown table type: {table_type!r}")
+
+    loop = _encode_dtype_loop(dtype_loop)
+
+    name = f"{table_type.capitalize()}_{loop}"
+    if table_type == "err":
+        name += f"_{platform}"
+
+    path = get_tables_path() / family / function / f"{name}.parquet"
+    return _resolve_table_path(path)
+
+
+def _get_vals_from_path(path):
+    """Load logical values from a Parquet table as NumPy arrays."""
+    table_type = path.name.split("_", 1)[0].lower()
+
+    if table_type == "in":
+        rows = get_input_rows(path)
+    elif table_type == "out":
+        rows = get_output_rows(path)
+    elif table_type == "err":
+        rows = pl.read_parquet(path).rows()
+    else:
+        raise ValueError(f"Unknown table type: {table_type!r}")
+
+    result = tuple(np.asarray(col) for col in zip(*rows))
+    if len(result) == 1:
+        result = result[0]
+    return result
 
 
 def _process_arg(arg, typecode):
@@ -59,6 +186,23 @@ def _encode_dtype_loop(dtype_loop):
         )
 
     return f"{encode(inputs)}-{encode(outputs)}"
+
+
+def _parquet_as_text(data):
+    """Render Parquet data as CSV with metadata for diffing."""
+    metadata = pq.read_schema(BytesIO(data)).metadata or {}
+
+    lines = ["# Metadata\n"]
+    for key, value in sorted(metadata.items()):
+        key = key.decode("utf-8", errors="backslashreplace")
+        value = value.decode("utf-8", errors="backslashreplace")
+        lines.append(f"# {key}: {value!r}\n")
+
+    lines.append("# Data (CSV)\n")
+    csv = pl.read_parquet(BytesIO(data)).write_csv()
+    lines.extend(csv.splitlines(keepends=True))
+
+    return lines
 
 
 def get_in_out_types(table_path):
@@ -158,59 +302,52 @@ def get_output_rows(table_path):
 
 
 def get_vals_from_table(
-        function, table_type, *, family="scipy_special_tests", dtype_loop, platform
+        function, table_type, *, family="scipy_special_tests",
+        dtype_loop, platform, revision=None
 ):
-    """Load a reference table for a given function and NumPy dtype loop.
+    """Load reference values and metadata from a Parquet table.
 
     Parameters
     ----------
     function : str
-        Function name, e.g. 'digamm
-        NumPy-style dtype loop, e.g. 'da'.
+        Function name, e.g. 'digamma'.
     table_type : {'in', 'out', 'err'}
         Type of table to load.
     family : str, optional
         Table family. Default is 'scipy_special_tests'.
-    dtype_loop : str->d' or 'D->D'.
+    dtype_loop : str
+        NumPy-style dtype loop, e.g. 'd->d' or 'D->D'.
     platform : str
         Platform identifier, e.g. 'gcc-linux-x86_64' or 'other'.
         Only used for error tables.
+    revision : str, optional
+        Git revision from which to load the table. May be a commit hash,
+        branch name, or tag. If None (default), use the working tree.
 
     Returns
     -------
-    numpy.ndarray or tuple of numpy.ndarray
-        Arrays containing the values of each logical column, with complex
-        values reconstructed. A single array is returned when the table
-        has only one logical column.
+    dict
+        Dictionary containing:
+
+        values : numpy.ndarray or tuple of numpy.ndarray
+            Logical table columns, with complex values reconstructed.
+            A single array is returned for a single logical column.
+        metadata : dict
+            Parquet schema metadata, with bytes keys and values.
     """
-    if table_type not in ("in", "out", "err"):
-        raise ValueError(f"Unknown table type: {table_type!r}")
-
-    loop = _encode_dtype_loop(dtype_loop)
-
-    name = f"{table_type.capitalize()}_{loop}"
-    if table_type == "err":
-        name += f"_{platform}"
-
-    path = get_tables_path() / family / function / f"{name}.parquet"
-
-    if not path.is_file():
-        raise FileNotFoundError(
-            f"No {table_type!r} table found for {function!r} with "
-            f"dtype loop {dtype_loop!r}.\n"
-            f"Expected file: {path}"
+    with _tables_at_commit(revision):
+        path = get_path_to_table(
+            function, table_type, family=family,
+            dtype_loop=dtype_loop, platform=platform
         )
+        values = _get_vals_from_path(path)
+        metadata = pq.read_schema(path).metadata or {}
+        metadata = {
+            key.decode("ascii"): value.decode("ascii")
+            for key, value in metadata.items()
+        }
 
-    if table_type == "in":
-        rows = get_input_rows(path)
-    elif table_type == "out":
-        rows = get_output_rows(path)
-    else:
-        rows = pl.read_parquet(path).rows()
-    result = tuple(np.asarray(col) for col in zip(*rows))
-    if len(result) == 1:
-        result = result[0]
-    return resultit
+    return {"values": values, "metadata": metadata}
 
 
 def init(shared_lock):
