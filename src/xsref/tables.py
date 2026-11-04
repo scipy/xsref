@@ -408,9 +408,16 @@ def get_table_diffs(revision1=None, revision2="main"):
 
     tables_path = Path(get_tables_path()).resolve()
 
+    repo_root = Path(subprocess.check_output(
+        ["git", "-C", str(tables_path), "rev-parse", "--show-toplevel"],
+        text=True,
+    ).strip())
+
+    relative_dir = tables_path.relative_to(repo_root).as_posix()
+
     def git(*args):
         return subprocess.check_output(
-            ["git", "-C", str(tables_path), *args]
+            ["git", "-C", str(repo_root), *args]
         )
 
     def paths(output):
@@ -419,9 +426,6 @@ def get_table_diffs(revision1=None, revision2="main"):
             for path in output.split(b"\0")
             if path
         }
-
-    repo_root = Path(git("rev-parse", "--show-toplevel").decode().strip())
-    relative_dir = tables_path.relative_to(repo_root).as_posix()
 
     def resolve(revision):
         if revision is None:
