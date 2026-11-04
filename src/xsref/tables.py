@@ -18,6 +18,7 @@ from concurrent.futures import ProcessPoolExecutor
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import partial
+from io import StringIO
 from multiprocessing import Lock
 from multiprocessing import Manager
 from pathlib import Path
@@ -348,6 +349,158 @@ def get_vals_from_table(
         }
 
     return {"values": values, "metadata": metadata}
+
+
+def table_to_string(table):
+    """Format reference table metadata and values as text for diffing.
+
+    Parameters
+    ----------
+    table : dict
+        Dictionary returned by `get_vals_from_table`, containing
+        'values' and 'metadata'.
+
+    Returns
+    -------
+    str
+        Table metadata followed by values formatted as CSV.
+        Complex values are represented as strings.
+    """
+    buffer = StringIO()
+
+    buffer.write("# Metadata\n")
+    for key, value in sorted(table["metadata"].items()):
+        buffer.write(f"# {key}: {value}\n")
+
+    buffer.write("# Values (CSV)\n")
+    values = table["values"]
+    columns = values if isinstance(values, tuple) else (values,)
+
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow([f"value{i}" for i in range(len(columns))])
+    writer.writerows(zip(*columns))
+
+    return buffer.getvalue()
+
+
+from difflib import unified_diff
+
+
+def get_table_diffs(revision1=None, revision2="main"):
+    """Compare reference tables between two Git revisions.
+
+    Parameters
+    ----------
+    revision1, revision2 : str or None, optional
+        Git revisions to compare. May be commit hashes, branch names,
+        or tags. None denotes the current working tree. Defaults are
+        None (working tree) and 'main', respectively.
+
+    Returns
+    -------
+    dict of str to str
+        Dictionary mapping table paths relative to `get_tables_path()`
+        to unified diffs of their metadata and logical values.
+        Only tables with differences are included.
+    """
+    if revision1 is None and revision2 is None:
+        return {}
+
+    tables_path = Path(get_tables_path()).resolve()
+
+    def git(*args):
+        return subprocess.check_output(
+            ["git", "-C", str(tables_path), *args]
+        )
+
+    def paths(output):
+        return {
+            os.fsdecode(path)
+            for path in output.split(b"\0")
+            if path
+        }
+
+    repo_root = Path(git("rev-parse", "--show-toplevel").decode().strip())
+    relative_dir = tables_path.relative_to(repo_root).as_posix()
+
+    def resolve(revision):
+        if revision is None:
+            return None
+        return git(
+            "rev-parse", "--verify", f"{revision}^{{commit}}"
+        ).decode().strip()
+
+    commit1 = resolve(revision1)
+    commit2 = resolve(revision2)
+
+    # Find changed files, including untracked files when comparing
+    # against the working tree.
+    revisions = (
+        [commit1, commit2] if commit1 and commit2
+        else [commit1 or commit2]
+    )
+    changed = paths(git(
+        "diff", "--no-renames", "--name-only", "-z",
+        *revisions, "--", relative_dir,
+    ))
+
+    if commit1 is None or commit2 is None:
+        changed |= paths(git(
+            "ls-files", "--others", "--exclude-standard",
+            "-z", "--", relative_dir,
+        ))
+
+    def files_at_revision(commit):
+        if commit is None:
+            return None
+        return paths(git(
+            "ls-tree", "-r", "--name-only", "-z",
+            commit, "--", relative_dir,
+        ))
+
+    files1 = files_at_revision(commit1)
+    files2 = files_at_revision(commit2)
+
+    def render(path, relative_path, revision, files):
+        if files is None:
+            if not path.is_file():
+                return None
+        elif relative_path not in files:
+            return None
+
+        with _tables_at_commit(revision):
+            resolved_path = _resolve_table_path(path)
+            return table_to_string(_read_table(resolved_path))
+
+    diffs = {}
+
+    for relative_path in sorted(changed):
+        if not relative_path.endswith(".parquet"):
+            continue
+
+        path = repo_root / relative_path
+        table_name = path.relative_to(tables_path).as_posix()
+
+        text1 = render(path, relative_path, commit1, files1)
+        text2 = render(path, relative_path, commit2, files2)
+
+        diff = "".join(unified_diff(
+            (text1 or "").splitlines(keepends=True),
+            (text2 or "").splitlines(keepends=True),
+            fromfile=(
+                f"{revision1 or 'working tree'}:{table_name}"
+                if text1 is not None else "/dev/null"
+            ),
+            tofile=(
+                f"{revision2 or 'working tree'}:{table_name}"
+                if text2 is not None else "/dev/null"
+            ),
+        ))
+
+        if diff:
+            diffs[table_name] = diff
+
+    return diffs
 
 
 def init(shared_lock):
