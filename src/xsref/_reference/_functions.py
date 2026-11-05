@@ -867,7 +867,7 @@ def erfcinv(x: Real) -> Real:
         return mp.nan
     if x == 0:
         return mp.inf
-    with mp.workprec(get_resolution_precision(x=p)):
+    with mp.workprec(get_resolution_precision(x=x)):
         result = mp.erfinv(mp.one - x)
     return result
 
