@@ -1227,11 +1227,22 @@ def it2j0y0(x: Real) -> Tuple[Real, Real]:
     def f1(t):
         return (1 - cyl_bessel_j0._mp(t)) / t
 
-    def f2(t):
-        return cyl_bessel_y0._mp(t) / t
-
     result1 = mp.quad(f1, [0, x])
-    result2 = mp.quad(f2, [0, x])
+    if x < 0:
+        return result1, mp.nan
+    # The second integral is from x to infinity. Integrate the power series of
+    # Y0 (A&S 9.1.13) term by term; this is much faster than mp.quadosc.
+    L = mp.log(x / 2) + mp.euler
+    q = (x / 2)**2
+
+    def term(k):
+        sign = -1 if int(k) % 2 else 1
+        return (
+            sign * q**k / mp.factorial(k)**2
+            * (L / (2 * k) - 1 / (4 * k**2) - mp.harmonic(k) / (2 * k))
+        )
+
+    result2 = mp.pi / 6 - 2 / mp.pi * (L**2 / 2 + mp.nsum(term, [1, mp.inf]))
     return result1, result2
 
 
@@ -1241,7 +1252,8 @@ def it2struve0(x: Real) -> Real:
     def f(t):
         return struve_h._mp(0, t) / t
 
-    return mp.quad(f, [0, x])
+    # The integral from x to infinity; the one from 0 to infinity is pi/2
+    return mp.pi / 2 - mp.quad(f, [0, x])
 
 
 @reference_implementation(scipy=ufuncs.itairy)
