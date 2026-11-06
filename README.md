@@ -69,6 +69,11 @@ The test suite uses `pytest` and can be run by invoking the `pytest` command
 in a shell from within the top level of the `xsref` repo. Currently the test
 suite only checks the consistency of the reference tables.
 
+## Linting
+
+Code is linted with Ruff using SciPy's rules (configured in `pyproject.toml`).
+Run `pixi run lint`, adding `--fix` to apply safe fixes.
+
 --
 
 [^1]: For complex valued cases, it would be nice to be able to use NumPy typecodes

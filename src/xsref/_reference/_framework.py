@@ -2,16 +2,12 @@ import functools
 import inspect
 import math
 import numpy as np
-import scipy
 import signal
-import threading
 import typing
 import warnings
 
 from mpmath import mp
-from packaging import version
-from typing import get_origin
-from typing import overload
+from typing import overload  # noqa: F401
 
 
 __all__ = ["reference_implementation", "XSRefFallbackWarning"]
@@ -42,9 +38,9 @@ def get_signatures_for_function(func):
         )
         return {input_types: output_types}
     signatures = {}
-    for overload in typing.get_overloads(func):
+    for overload_def in typing.get_overloads(func):
         input_types, output_types = get_signature_from_type_hints(
-            typing.get_type_hints(overload)
+            typing.get_type_hints(overload_def)
         )
         signatures[input_types] = output_types
     return signatures
@@ -209,7 +205,7 @@ class reference_implementation:
                         f"{type(e).__name__}"
                     )
                     message += f", {e}" if str(e) else ""
-                    warnings.warn(message, XSRefFallbackWarning)
+                    warnings.warn(message, XSRefFallbackWarning, stacklevel=2)
                 else:
                     raise e
             finally:

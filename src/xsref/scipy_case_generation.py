@@ -34,16 +34,18 @@ class TracedUfunc:
 
         from . import _ufuncs
         for func_name in dir(_ufuncs):
-            if func_name.startswith("__") or func_name in ["seterr", "geterr", "errstate"]:
+            if func_name.startswith("__") or func_name in [
+                "seterr", "geterr", "errstate"
+            ]:
                 continue
-        func = getattr(_ufuncs, func_name)
-        if not callable(func):
-            continue
-        setattr(
-            _ufuncs,
-            func_name,
-            TracedUfunc(func, outpath=f"~/special_test_cases/{func_name}.csv")
-        )
+            func = getattr(_ufuncs, func_name)
+            if not callable(func):
+                continue
+            setattr(
+                _ufuncs,
+                func_name,
+                TracedUfunc(func, outpath=f"~/special_test_cases/{func_name}.csv")
+            )
         from ._ufuncs import *
 
     and then run
@@ -163,7 +165,7 @@ def traced_cases_to_parquet(funcname, infiles, outdir):
 
     new_rows = defaultdict(list)
     for infile in infiles:
-        with open(infile, 'r', newline='') as csvfile:
+        with open(infile, newline='') as csvfile:
             for row in csv.reader(csvfile, dialect="unix"):
                 args = row[:-3]
                 types = row[-3]
