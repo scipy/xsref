@@ -5,9 +5,8 @@ import sys
 import warnings
 
 from mpmath import mp  # type: ignore
-from mpmath.calculus.optimization import Bisection, Secant
-from packaging import version
-from typing import overload, Tuple
+from mpmath.calculus.optimization import Bisection
+from typing import overload
 
 from numpy import integer as Integer
 from numpy import floating as Real
@@ -67,9 +66,9 @@ def get_resolution_precision(*, x=None, log2abs_x=None):
 
 
 @overload
-def airy(x: Real) -> Tuple[Real, Real, Real, Real]: ...
+def airy(x: Real) -> tuple[Real, Real, Real, Real]: ...
 @overload
-def airy(x: Complex) -> Tuple[Complex, Complex, Complex, Complex]: ...
+def airy(x: Complex) -> tuple[Complex, Complex, Complex, Complex]: ...
 
 
 @reference_implementation(scipy=ufuncs.airy)
@@ -88,9 +87,9 @@ def airy(z):
 
 
 @overload
-def airye(x: Real) -> Tuple[Real, Real, Real, Real]: ...
+def airye(x: Real) -> tuple[Real, Real, Real, Real]: ...
 @overload
-def airye(x: Complex) -> Tuple[Complex, Complex, Complex, Complex]: ...
+def airye(x: Complex) -> tuple[Complex, Complex, Complex, Complex]: ...
 
 
 @reference_implementation(scipy=ufuncs.airye)
@@ -258,7 +257,7 @@ def cbrt(x: Real) -> Real:
 
 
 @reference_implementation(scipy=ufuncs.mathieu_cem)
-def cem(m: Real, q: Real, x: Real) -> Tuple[Real, Real]:
+def cem(m: Real, q: Real, x: Real) -> tuple[Real, Real]:
     """Even Mathieu function and its derivative."""
     raise NotImplementedError
 
@@ -763,7 +762,7 @@ def ellipeinc(phi: Real, m: Real) -> Real:
 
 
 @reference_implementation(scipy=ufuncs.ellipj)
-def ellipj(u: Real, m: Real) -> Tuple[Real, Real, Real, Real]:
+def ellipj(u: Real, m: Real) -> tuple[Real, Real, Real, Real]:
     """Jacobian Elliptic functions."""
     sn = mp.ellipfun("sn", u=u, m=m)
     cn = mp.ellipfun("cn", u=u, m=m)
@@ -1020,9 +1019,9 @@ def fdtri(dfn: Real, dfd: Real, p: Real) -> Real:
     return q * dfd / ((1 - q) * dfn)
 
 @overload
-def fresnel(x: Real) -> Tuple[Real, Real]: ...
+def fresnel(x: Real) -> tuple[Real, Real]: ...
 @overload
-def fresnel(x: Complex) -> Tuple[Complex, Complex]: ...
+def fresnel(x: Complex) -> tuple[Complex, Complex]: ...
 
 
 @reference_implementation(scipy=ufuncs.fresnel)
@@ -1199,7 +1198,7 @@ def hyperu(a: Real, b: Real, z: Real) -> Real:
 
 
 @reference_implementation(scipy=ufuncs.iti0k0)
-def it1i0k0(x: Real) -> Tuple[Real, Real]:
+def it1i0k0(x: Real) -> tuple[Real, Real]:
     """Integrals of modified Bessel functions of order 0."""
     result1 = mp.quad(cyl_bessel_i0._mp, [0, x])
     result2 = mp.quad(cyl_bessel_k0._mp, [0, x])
@@ -1207,7 +1206,7 @@ def it1i0k0(x: Real) -> Tuple[Real, Real]:
 
 
 @reference_implementation(scipy=ufuncs.itj0y0)
-def it1j0y0(x: Real) -> Tuple[Real, Real]:
+def it1j0y0(x: Real) -> tuple[Real, Real]:
     """Integrals of Bessel functions of the first kind of order 0."""
     result1 = mp.quad(cyl_bessel_j0._mp, [0, x])
     result2 = mp.quad(cyl_bessel_y0._mp, [0, x])
@@ -1215,13 +1214,13 @@ def it1j0y0(x: Real) -> Tuple[Real, Real]:
 
 
 @reference_implementation(scipy=ufuncs.it2i0k0)
-def it2i0k0(x: Real) -> Tuple[Real, Real]:
+def it2i0k0(x: Real) -> tuple[Real, Real]:
     """Integrals related to modified Bessel functions of order 0."""
     raise NotImplementedError
 
 
 @reference_implementation(scipy=ufuncs.it2j0y0)
-def it2j0y0(x: Real) -> Tuple[Real, Real]:
+def it2j0y0(x: Real) -> tuple[Real, Real]:
     """Integrals related to Bessel functions of the first kind of order 0."""
 
     def f1(t):
@@ -1245,7 +1244,7 @@ def it2struve0(x: Real) -> Real:
 
 
 @reference_implementation(scipy=ufuncs.itairy)
-def itairy(x: Real) -> Tuple[Real, Real, Real, Real]:
+def itairy(x: Real) -> tuple[Real, Real, Real, Real]:
     """Integrals of Airy functions."""
     def ai(t):
         return mp.airyai(t)
@@ -1319,7 +1318,7 @@ def keip(x: Real) -> Real:
 
 
 @reference_implementation(scipy=ufuncs.kelvin)
-def kelvin(x: Real) -> Tuple[Complex, Complex, Complex, Complex]:
+def kelvin(x: Real) -> tuple[Complex, Complex, Complex, Complex]:
     """Kelvin functions as complex numbers."""
     be = mp.mpc(ber._mp(x), bei._mp(x))
     ke = mp.mpc(ker._mp(x), kei._mp(x))
@@ -1534,37 +1533,37 @@ def logit(p: Real) -> Real:
 
 
 @reference_implementation(scipy=ufuncs.mathieu_modcem1)
-def mcm1(m: Real, q: Real, x: Real) -> Tuple[Real, Real]:
+def mcm1(m: Real, q: Real, x: Real) -> tuple[Real, Real]:
     """Even modified Mathieu function of the first kind and its derivative."""
     raise NotImplementedError
 
 
 @reference_implementation(scipy=ufuncs.mathieu_modcem2)
-def mcm2(m: Real, q: Real, x: Real) -> Tuple[Real, Real]:
+def mcm2(m: Real, q: Real, x: Real) -> tuple[Real, Real]:
     """Even modified Mathieu function of the second kind and its derivative."""
     raise NotImplementedError
 
 
 @reference_implementation(scipy=ufuncs.modfresnelm)
-def modified_fresnel_minus(x: Real) -> Tuple[Complex, Complex]:
+def modified_fresnel_minus(x: Real) -> tuple[Complex, Complex]:
     """Modified Fresnel negative integrals."""
     raise NotImplementedError
 
 
 @reference_implementation(scipy=ufuncs.modfresnelp)
-def modified_fresnel_plus(x: Real) -> Tuple[Complex, Complex]:
+def modified_fresnel_plus(x: Real) -> tuple[Complex, Complex]:
     """Modified Fresnel negative integrals."""
     raise NotImplementedError
 
 
 @reference_implementation(scipy=ufuncs.mathieu_modsem1)
-def msm1(m: Real, q: Real, x: Real) -> Tuple[Real, Real]:
+def msm1(m: Real, q: Real, x: Real) -> tuple[Real, Real]:
     """Odd modified Mathieu function of the first kind and its derivative."""
     raise NotImplementedError
 
 
 @reference_implementation(scipy=ufuncs.mathieu_modsem2)
-def msm2(m: Real, q: Real, x: Real) -> Tuple[Real, Real]:
+def msm2(m: Real, q: Real, x: Real) -> tuple[Real, Real]:
     """Odd modified Mathieu function of the second kind and its derivative."""
     raise NotImplementedError
 
@@ -1635,7 +1634,7 @@ def ndtri(y: Real) -> Real:
 @reference_implementation(scipy=ufuncs.obl_ang1_cv)
 def oblate_aswfa(
     m: Real, n: Real, c: Real, cv: Real, x: Real
-) -> Tuple[Real, Real]:
+) -> tuple[Real, Real]:
     """Oblate spheroidal angular function obl_ang1 for precomputed cv
 
     cv: Characteristic Value
@@ -1646,7 +1645,7 @@ def oblate_aswfa(
 @reference_implementation(scipy=ufuncs.obl_ang1)
 def oblate_aswfa_nocv(
     m: Real, n: Real, c: Real, x: Real
-) -> Tuple[Real, Real]:
+) -> tuple[Real, Real]:
     """Oblate spheroidal angular function of the first kind and its derivative."""
     raise NotImplementedError
 
@@ -1654,7 +1653,7 @@ def oblate_aswfa_nocv(
 @reference_implementation(scipy=ufuncs.obl_rad1_cv)
 def oblate_radial1(
     m: Real, n: Real, c: Real, cv: Real, x: Real
-) -> Tuple[Real, Real]:
+) -> tuple[Real, Real]:
     """Oblate spheroidal radial function obl_rad1 for precomputed cv
 
     cv: Characteristic Value
@@ -1665,7 +1664,7 @@ def oblate_radial1(
 @reference_implementation(scipy=ufuncs.obl_rad1)
 def oblate_radial1_nocv(
     m: Real, n: Real, c: Real, x: Real
-) -> Tuple[Real, Real]:
+) -> tuple[Real, Real]:
     """Oblate spheroidal radial function of the first kind and its derivative."""
     raise NotImplementedError
 
@@ -1673,7 +1672,7 @@ def oblate_radial1_nocv(
 @reference_implementation(scipy=ufuncs.obl_rad2_cv)
 def oblate_radial2(
     m: Real, n: Real, c: Real, cv: Real, x: Real
-) -> Tuple[Real, Real]:
+) -> tuple[Real, Real]:
     """Oblate spheroidal angular function obl_rad2 for precomputed cv
 
     cv: Characteristic Value
@@ -1684,7 +1683,7 @@ def oblate_radial2(
 @reference_implementation(scipy=ufuncs.obl_rad2)
 def oblate_radial2_nocv(
     m: Real, n: Real, c: Real, x: Real
-) -> Tuple[Real, Real]:
+) -> tuple[Real, Real]:
     """Oblate spheroidal radial function of the second kind and its derivative."""
     raise NotImplementedError
 
@@ -1705,19 +1704,19 @@ def owens_t(h: Real, a: Real) -> Real:
 
 
 @reference_implementation(scipy=ufuncs.pbdv)
-def pbdv(v: Real, x: Real) -> Tuple[Real, Real]:
+def pbdv(v: Real, x: Real) -> tuple[Real, Real]:
     """Parabolic cylinder function D."""
     d = mp.pcfd(v, x)
     _, dp = ufuncs.pbdv(to_fp(v), to_fp(x))
     message = (
         "Reference implementation pbdv falls back to SciPy for derivative."
     )
-    warnings.warn(message, XSRefFallbackWarning)
+    warnings.warn(message, XSRefFallbackWarning, stacklevel=1)
     return d, to_mp(dp)
 
 
 @reference_implementation(scipy=ufuncs.pbvv)
-def pbvv(v: Real, x: Real) -> Tuple[Real, Real]:
+def pbvv(v: Real, x: Real) -> tuple[Real, Real]:
     """Parabolic cylinder function V."""
     # Set precision to guarantee -v - 0.5 retains precision for very small v.
     with mp.workprec(get_resolution_precision(x=2*v)):
@@ -1726,19 +1725,19 @@ def pbvv(v: Real, x: Real) -> Tuple[Real, Real]:
     message = (
         "Reference implementation pbvv falls back to SciPy for derivative."
     )
-    warnings.warn(message, XSRefFallbackWarning)
+    warnings.warn(message, XSRefFallbackWarning, stacklevel=1)
     return d, to_mp(dp)
 
 
 @reference_implementation(scipy=ufuncs.pbwa)
-def pbwa(v: Real, x: Real) -> Tuple[Real, Real]:
+def pbwa(v: Real, x: Real) -> tuple[Real, Real]:
     """Parabolic cylinder function W."""
     d = mp.pcfw(v, x)
     _, dp = ufuncs.pbwa(to_fp(v), to_fp(x))
     message = (
         "Reference implementation pbwa falls back to SciPy for derivative."
     )
-    warnings.warn(message, XSRefFallbackWarning)
+    warnings.warn(message, XSRefFallbackWarning, stacklevel=1)
     return d, to_mp(dp)
 
 
@@ -1787,7 +1786,7 @@ def poch(z: Real, m: Real) -> Real:
 @reference_implementation(scipy=ufuncs.pro_ang1_cv)
 def prolate_aswfa(
     m: Real, n: Real, c: Real, cv: Real, x: Real
-) -> Tuple[Real, Real]:
+) -> tuple[Real, Real]:
     """Prolate spheroidal angular function pro_ang1 for precomputed cv
 
     cv: Characteristic Value
@@ -1798,7 +1797,7 @@ def prolate_aswfa(
 @reference_implementation(scipy=ufuncs.pro_ang1)
 def prolate_aswfa_nocv(
     m: Real, n: Real, c: Real, x: Real
-) -> Tuple[Real, Real]:
+) -> tuple[Real, Real]:
     """Prolate spheroidal angular function of the first kind and its derivative."""
     raise NotImplementedError
 
@@ -1806,7 +1805,7 @@ def prolate_aswfa_nocv(
 @reference_implementation(scipy=ufuncs.pro_rad1_cv)
 def prolate_radial1(
     m: Real, n: Real, c: Real, cv: Real, x: Real
-) -> Tuple[Real, Real]:
+) -> tuple[Real, Real]:
     """Prolate spheroidal radial function pro_rad1 for precomputed cv
 
     cv: Characteristic Value
@@ -1817,7 +1816,7 @@ def prolate_radial1(
 @reference_implementation(scipy=ufuncs.pro_rad1)
 def prolate_radial1_nocv(
     m: Real, n: Real, c: Real, x: Real
-) -> Tuple[Real, Real]:
+) -> tuple[Real, Real]:
     """Prolate spheroidal radial function of the first kind and its derivative."""
     raise NotImplementedError
 
@@ -1825,7 +1824,7 @@ def prolate_radial1_nocv(
 @reference_implementation(scipy=ufuncs.pro_rad2_cv)
 def prolate_radial2(
     m: Real, n: Real, c: Real, cv: Real, x: Real
-) -> Tuple[Real, Real]:
+) -> tuple[Real, Real]:
     """Prolate spheroidal angular function pro_rad2 for precomputed cv
 
     cv: Characteristic Value
@@ -1836,7 +1835,7 @@ def prolate_radial2(
 @reference_implementation(scipy=ufuncs.pro_rad2)
 def prolate_radial2_nocv(
     m: Real, n: Real, c: Real, x: Real
-) -> Tuple[Real, Real]:
+) -> tuple[Real, Real]:
     """Prolate spheroidal radial function of the second kind and its derivative."""
     raise NotImplementedError
 
@@ -1901,7 +1900,7 @@ def scaled_exp1(x: Real) -> Real:
 
 
 @reference_implementation(scipy=ufuncs.mathieu_sem)
-def sem(m: Real, q: Real, x: Real) -> Tuple[Real, Real]:
+def sem(m: Real, q: Real, x: Real) -> tuple[Real, Real]:
     """Odd Mathieu function and its derivative."""
     raise NotImplementedError
 
@@ -1913,9 +1912,9 @@ def sem_cva(m: Real, q: Real) -> Real:
 
 
 @overload
-def shichi(x: Real) -> Tuple[Real, Real]: ...
+def shichi(x: Real) -> tuple[Real, Real]: ...
 @overload
-def shichi(x: Complex) -> Tuple[Complex, Complex]: ...
+def shichi(x: Complex) -> tuple[Complex, Complex]: ...
 
 
 @reference_implementation(scipy=ufuncs.shichi)
@@ -1931,9 +1930,9 @@ def shichi(x):
 
 
 @overload
-def sici(x: Real) -> Tuple[Real, Real]: ...
+def sici(x: Real) -> tuple[Real, Real]: ...
 @overload
-def sici(x: Complex) -> Tuple[Complex, Complex]: ...
+def sici(x: Complex) -> tuple[Complex, Complex]: ...
 
 
 @reference_implementation(scipy=ufuncs.sici)
@@ -2188,7 +2187,7 @@ def solve_bisect(f, xl, xr, *, maxiter=1000):
                     continue
                 ft = f(t)
                 if  mp.sign(ft) != mp.sign(fl):
-                    xr = t;
+                    xr = t
                     break
                 xl = t
         else:
@@ -2197,7 +2196,7 @@ def solve_bisect(f, xl, xr, *, maxiter=1000):
                     continue
                 ft = f(t)
                 if  mp.sign(ft) != mp.sign(fr):
-                    xl = t;
+                    xl = t
                     break
                 xr = t
 

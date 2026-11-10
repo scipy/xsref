@@ -1,7 +1,6 @@
 """Generate cpp code for xsf tests"""
 import argparse
 import pyarrow.parquet as pq
-import subprocess
 
 from pathlib import Path
 
@@ -269,9 +268,9 @@ class _generate_test_case:
             desired_names = ["desired"]
             tol_names = ["tol"]
             error_names = ["error"]
-            result += f"auto [desired, fallback] = output;\n"
+            result += "auto [desired, fallback] = output;\n"
             result += f"auto out = xsf::{self.func_name}({args});\n"
-            result += f"auto error = xsf::extended_relative_error(out, desired);\n"
+            result += "auto error = xsf::extended_relative_error(out, desired);\n"
             result += "tol = adjust_tolerance(tol);\n"
             result += f"CAPTURE({', '.join(arg_names + ['out', 'desired', 'error', 'tol', 'fallback'])});\n"
             result += "REQUIRE(error <= tol);\n"

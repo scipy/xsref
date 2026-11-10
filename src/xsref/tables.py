@@ -17,6 +17,7 @@ import warnings
 from concurrent.futures import ProcessPoolExecutor
 from contextlib import contextmanager
 from contextvars import ContextVar
+from difflib import unified_diff
 from functools import partial
 from html import escape
 from io import StringIO
@@ -236,7 +237,7 @@ def get_input_rows(table_path):
         a special function and in format used by xsref. float32, float64, int32
         and int64 inputs have corresponding types in parquet. Complex inputs
         are stored in two columns of the corresponding base type.
-        
+
     Returns
     -------
     List of tuple
@@ -276,7 +277,7 @@ def get_output_rows(table_path):
         on a temporary basis to guard against regressions if a reference
         implementation has not yet been implemented for a function in a given
         parameter regime.
-        
+
     Returns
     -------
     List of tuple
@@ -372,9 +373,6 @@ def table_to_string(table):
     writer.writerows((i, *row) for i, row in enumerate(zip(*columns)))
 
     return buffer.getvalue()
-
-
-from difflib import unified_diff
 
 
 def get_table_diffs(revision1="main", revision2=None):
@@ -630,7 +628,6 @@ def _evaluate(func, logpath, ertol, lock, args):
             f" {func._scipy_func} for args {args}."
         )
 
-    errors = []
     for scipy_result, ref_result in zip(scipy_results, ref_results):
         error = extended_relative_error(scipy_result, ref_result)
         if logpath is not None and error >= ertol:
@@ -832,7 +829,7 @@ def compute_initial_err_table(inpath):
     funcname = metadata[b"function"].decode("ascii")
     xsref_func = getattr(xsref_funcs, funcname)
     scipy_func = xsref_func._scipy_func
-    
+
     input_rows = get_input_rows(inpath)
     reference_output_rows = np.asarray(get_output_rows(outpath)).T
     observed_output = np.asarray(scipy_func(*zip(*input_rows)))
