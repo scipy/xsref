@@ -16,7 +16,6 @@ requires-python = ">=3.11"
 dependencies = [
   "mpmath",
   "numpy",
-  "packaging",
   "polars",
   "pyarrow",
   "scipy",
@@ -26,3 +25,20 @@ readme = "README.md"
 [dependency-groups]
 test = ["pytest"]
 lint = ["ruff>=0.12.0"]
+
+[tool.ruff]
+# Mirrors SciPy's tools/linting/lint.toml. SciPy does not run `ruff format`
+# or sort imports, so neither is enforced here.
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "UP", "PGH004", "B006", "B008", "B028", "ICN001", "RUF100"]
+# E741: ambiguous variable names
+ignore = ["E741"]
+
+[tool.ruff.lint.per-file-ignores]
+# Generated C++ test code is kept on one line per statement.
+"src/xsref/cpp_generation.py" = ["E501"]
+
+[tool.ruff.lint.flake8-import-conventions.aliases]
+numpy = "np"

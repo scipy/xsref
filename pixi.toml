@@ -24,6 +24,7 @@ pyarrow = "*"
 [environments]
 default = { features = ["default"], solve-group = "default" }
 tests = { features = ["tests"], solve-group = "default" }
+lint = { features = ["lint"], no-default-feature = true }
 
 ### default feature definition ###
 
@@ -42,3 +43,10 @@ pytest = "*"
 [feature.tests.tasks.tests]
 description = "Run tests"
 cmd = "pytest"
+
+[feature.lint.dependencies]
+ruff = "*"
+
+[feature.lint.tasks.lint]
+description = "Check Python code with Ruff"
+cmd = "ruff check ."
